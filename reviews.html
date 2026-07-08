@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Відгуки покупців | SMART STORE</title>
+<meta name="description" content="Реальні відгуки покупців SMART STORE про чохли, кабелі, зарядні пристрої та інші аксесуари. Дізнайтесь думку клієнтів і залиште власний відгук.">
+<link rel="canonical" href="https://smartstoreua.com/reviews.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Відгуки покупців | SMART STORE">
+<meta property="og:description" content="Реальні відгуки покупців SMART STORE про чохли, кабелі, зарядні пристрої та інші аксесуари.">
+<meta property="og:url" content="https://smartstoreua.com/reviews.html">
+<link rel="icon" type="image/jpeg" href="logo.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<div class="battery-track"><div class="battery-fill" id="batteryFill" style="width:0%"></div></div>
+
+<header>
+  <div class="logo"><a href="index.html" style="display:flex;align-items:center;gap:10px;"><img src="logo.jpg" alt="SMART STORE логотип">SMART STORE</a></div>
+  <nav class="links">
+    <a href="index.html#categories">Категорії</a>
+    <a href="index.html#products">Товари</a>
+    <a href="index.html#why">Чому ми</a>
+    <a href="index.html#contacts">Контакти</a>
+  </nav>
+  <div class="header-actions">
+    <div class="cart-btn" role="button" tabindex="0" onclick="location.href='index.html#cart'" onkeydown="if(event.key==='Enter')location.href='index.html#cart'">Кошик <span class="cart-count" id="cartCount">0</span></div>
+    <button class="burger" aria-label="Меню" onclick="toggleMobileNav()"><span></span></button>
+  </div>
+</header>
+<div class="mobile-nav" id="mobileNav">
+  <div class="panel">
+    <a href="index.html#categories" onclick="toggleMobileNav()">Категорії</a>
+    <a href="index.html#products" onclick="toggleMobileNav()">Товари</a>
+    <a href="index.html#why" onclick="toggleMobileNav()">Чому ми</a>
+    <a href="index.html#contacts" onclick="toggleMobileNav()">Контакти</a>
+  </div>
+</div>
+
+<nav class="crumbs">
+  <a href="index.html">Головна</a><span class="sep">/</span>
+  <span class="cur">Відгуки</span>
+</nav>
+
+<section class="cat-hero">
+  <div class="eyebrow tag-mono">Відгуки покупців</div>
+  <h1>Що кажуть клієнти SMART STORE</h1>
+  <p>Реальні враження людей, які вже замовляли аксесуари в нашому магазині. Маєте власний досвід — поділіться ним, це допомагає іншим покупцям зробити правильний вибір.</p>
+  <div class="cta-row" style="margin-top:22px;">
+    <button class="btn btn-primary" onclick="openReview()">Залишити відгук</button>
+  </div>
+</section>
+
+<section class="block" style="padding-top:0;">
+  <div class="review-row" id="reviewsGrid" style="grid-template-columns:repeat(3,1fr);">
+    <div class="review"><div class="stars">★★★★★</div><p>Замовляла чохол і скло — прийшло швидко, все підійшло ідеально під модель.</p><div class="who">Олена, Київ</div></div>
+    <div class="review"><div class="stars">★★★★★</div><p>Зарядка тримає заявлену потужність, телефон заряджається справді швидко.</p><div class="who">Максим, Львів</div></div>
+    <div class="review"><div class="stars">★★★★☆</div><p>Гарна якість матеріалів, приємно тримати в руках. Буду замовляти ще.</p><div class="who">Ірина, Одеса</div></div>
+    <div class="review"><div class="stars">★★★★★</div><p>Кабель тонкий, гнучкий і не заплутується в сумці. Приємно, що прийшов у день, обіцяний на сайті.</p><div class="who">Андрій, Дніпро</div></div>
+    <div class="review"><div class="stars">★★★★★</div><p>Дуже задоволена ремінцем для годинника — сидить щільно, колір саме такий, як на фото.</p><div class="who">Софія, Харків</div></div>
+    <div class="review"><div class="stars">★★★★☆</div><p>Павербанк заряджає телефон повністю двічі, вагу майже не відчуваю в рюкзаку.</p><div class="who">Дмитро, Вінниця</div></div>
+    <div class="review"><div class="stars">★★★★★</div><p>Написала в підтримку щодо розміру чохла — відповіли за хвилину і допомогли обрати правильно.</p><div class="who">Марина, Івано-Франківськ</div></div>
+    <div class="review"><div class="stars">★★★★★</div><p>Навушники звучать набагато краще, ніж очікувала за такою ціною. Батарея тримає цілий день.</p><div class="who">Віталій, Запоріжжя</div></div>
+    <div class="review"><div class="stars">★★★★☆</div><p>Замовляв тримач в авто — кріпиться надійно, телефон не хитається навіть на нерівній дорозі.</p><div class="who">Роман, Полтава</div></div>
+  </div>
+  <p class="note" style="text-align:center; margin-top:28px;">Показані відгуки перевірені командою магазину вручну перед публікацією.</p>
+</section>
+
+<footer>
+  <div class="logo"><img src="logo.jpg" alt="SMART STORE логотип">SMART STORE</div>
+  <div class="cols">
+    <div>
+      <h4>Каталог</h4>
+      <a href="category/chokhly-iphone.html">Чохли iPhone</a>
+      <a href="category/kabeli.html">Кабелі й зарядки</a>
+      <a href="category/navushnyky.html">Навушники</a>
+      <a href="index.html#categories">Усі категорії</a>
+    </div>
+    <div>
+      <h4>Компанія</h4>
+      <a href="index.html#why">Про нас</a>
+      <a href="index.html#contacts">Контакти</a>
+      <a href="index.html">Доставка й оплата</a>
+      <a href="reviews.html">Відгуки</a>
+    </div>
+    <div>
+      <h4>Контакти</h4>
+      <a href="tel:+380739435741">+380 73 943 57 41</a>
+      <a href="mailto:taraskabala4@gmail.com">taraskabala4@gmail.com</a>
+      <a href="javascript:void(0)">Telegram / Instagram</a>
+    </div>
+  </div>
+</footer>
+
+<!-- REVIEW MODAL -->
+<div class="overlay" id="reviewOverlay">
+  <div class="info-drawer">
+    <div id="reviewFormView" style="display:flex; flex-direction:column; height:100%;">
+      <h3>Залишити відгук <span class="x" onclick="closeReview()">✕</span></h3>
+      <form id="reviewForm" class="drawer-scroll" style="gap:14px;" method="POST" name="review" data-netlify="true" netlify-honeypot="bot-field-r">
+        <input type="hidden" name="form-name" value="review">
+        <p class="hp"><label>Не заповнюйте: <input name="bot-field-r"></label></p>
+
+        <div class="field">
+          <label>Ваша оцінка *</label>
+          <div class="star-picker" id="starPicker">
+            <span data-v="1" onclick="setRating(1)">★</span><span data-v="2" onclick="setRating(2)">★</span><span data-v="3" onclick="setRating(3)">★</span><span data-v="4" onclick="setRating(4)">★</span><span data-v="5" onclick="setRating(5)">★</span>
+          </div>
+          <input type="hidden" name="rating" id="ratingField" required>
+        </div>
+
+        <div class="field"><label>Ім'я *</label><input name="name" required placeholder="Напр. Олена"></div>
+        <div class="field"><label>Місто</label><input name="city" placeholder="Напр. Київ"></div>
+        <div class="field"><label>Ваш відгук *</label><textarea name="text" required placeholder="Розкажіть, що сподобалось або що можна покращити" style="min-height:100px;"></textarea></div>
+
+        <button type="submit" class="btn btn-primary" id="submitReviewBtn" style="width:100%; justify-content:center;">Надіслати відгук</button>
+        <div class="note">Дякуємо за чесний відгук! Після перевірки командою магазину він з'явиться на сайті.</div>
+      </form>
+    </div>
+
+    <div id="reviewSuccessView" style="display:none; flex-direction:column; height:100%;">
+      <h3>Дякуємо <span class="x" onclick="closeReview()">✕</span></h3>
+      <div class="success-box">
+        <div class="check">✓</div>
+        <h3 style="justify-content:center;">Відгук надіслано!</h3>
+        <p class="note" style="max-width:280px;">Дякуємо, що поділились враженнями. Ми модеруємо відгуки вручну — ваш з'явиться на сайті найближчим часом.</p>
+        <button class="btn btn-ghost" onclick="closeReview()">Закрити</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="pageToast"></div>
+
+<script>
+  (function(){
+    function cartCount(){
+      try{
+        var c = JSON.parse(localStorage.getItem('smartstore_cart') || '{}');
+        return Object.values(c).reduce(function(a,b){ return a + b; }, 0);
+      }catch(e){ return 0; }
+    }
+    document.addEventListener('DOMContentLoaded', function(){
+      var el = document.getElementById('cartCount');
+      if(el) el.textContent = cartCount();
+    });
+  })();
+  function toggleMobileNav(){
+    var m = document.getElementById('mobileNav');
+    if(m) m.classList.toggle('open');
+  }
+  document.addEventListener('click', function(e){
+    var m = document.getElementById('mobileNav');
+    if(m && m.classList.contains('open') && e.target.id === 'mobileNav') m.classList.remove('open');
+  });
+  window.addEventListener('scroll', function(){
+    var h = document.documentElement;
+    var pct = Math.min(100, Math.round((h.scrollTop) / (h.scrollHeight - h.clientHeight) * 100)) || 0;
+    var fill = document.getElementById('batteryFill');
+    if(fill) fill.style.width = pct + '%';
+  });
+
+  function setRating(v){
+    document.getElementById('ratingField').value = v;
+    document.querySelectorAll('#starPicker span').forEach(function(s){
+      s.classList.toggle('filled', parseInt(s.dataset.v) <= v);
+    });
+  }
+  function resetStars(){
+    document.getElementById('ratingField').value = '';
+    document.querySelectorAll('#starPicker span').forEach(function(s){ s.classList.remove('filled'); });
+  }
+  function openReview(){
+    document.getElementById('reviewOverlay').classList.add('open');
+    document.getElementById('reviewFormView').style.display = 'flex';
+    document.getElementById('reviewSuccessView').style.display = 'none';
+    resetStars();
+  }
+  function closeReview(){ document.getElementById('reviewOverlay').classList.remove('open'); }
+  document.getElementById('reviewOverlay').addEventListener('click', function(e){ if(e.target.id === 'reviewOverlay') closeReview(); });
+
+  document.getElementById('reviewForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    var form = e.target;
+    if(!document.getElementById('ratingField').value){
+      var t = document.getElementById('pageToast');
+      if(t){ t.textContent = 'Оберіть оцінку зірками'; t.classList.add('show'); setTimeout(function(){ t.classList.remove('show'); }, 1800); }
+      return;
+    }
+    var btn = document.getElementById('submitReviewBtn');
+    btn.disabled = true; btn.textContent = 'Надсилаємо…';
+    fetch('/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams(new FormData(form)).toString()
+    }).then(function(res){
+      if(!res.ok) throw new Error('bad status');
+      form.reset();
+      resetStars();
+      document.getElementById('reviewFormView').style.display = 'none';
+      document.getElementById('reviewSuccessView').style.display = 'flex';
+    }).catch(function(){
+      var t = document.getElementById('pageToast');
+      if(t){ t.textContent = 'Помилка надсилання. Спробуйте ще раз.'; t.classList.add('show'); setTimeout(function(){ t.classList.remove('show'); }, 1800); }
+    }).finally(function(){
+      btn.disabled = false; btn.textContent = 'Надіслати відгук';
+    });
+  });
+</script>
+</body>
+</html>

@@ -124,7 +124,10 @@
 <section class="block" id="reviews">
   <div class="section-head">
     <div><h2>Що кажуть покупці</h2></div>
-    <button class="btn btn-ghost" onclick="openReview()">Залишити відгук</button>
+    <div style="display:flex; gap:10px;">
+      <a href="reviews.html"><button class="btn btn-ghost">Усі відгуки</button></a>
+      <button class="btn btn-primary" onclick="openReview()">Залишити відгук</button>
+    </div>
   </div>
   <div class="review-row">
     <div class="review"><div class="stars">★★★★★</div><p>Замовляла чохол і скло — прийшло швидко, все підійшло ідеально під модель.</p><div class="who">Олена, Київ</div></div>
@@ -160,6 +163,7 @@
       <a href="#why">Про нас</a>
       <a href="#contacts">Контакти</a>
       <a href="javascript:void(0)" onclick="openInfo()">Доставка й оплата</a>
+      <a href="reviews.html">Відгуки</a>
     </div>
     <div>
       <h4>Контакти</h4>
@@ -288,7 +292,6 @@
 
         <div class="field"><label>Ім'я *</label><input name="name" required placeholder="Напр. Олена"></div>
         <div class="field"><label>Місто</label><input name="city" placeholder="Напр. Київ"></div>
-        <div class="field"><label>Який товар придбали?</label><input name="product" placeholder="Напр. Чохол Blueo для iPhone 15"></div>
         <div class="field"><label>Ваш відгук *</label><textarea name="text" required placeholder="Розкажіть, що сподобалось або що можна покращити" style="min-height:100px;"></textarea></div>
 
         <button type="submit" class="btn btn-primary" id="submitReviewBtn" style="width:100%; justify-content:center;">Надіслати відгук</button>
@@ -600,7 +603,7 @@
   // Щоб увімкнути автопідбір міст і відділень Нової Пошти, вставте сюди свій
   // безкоштовний API-ключ (Особистий кабінет НП → Налаштування → API).
   // Поки ключ порожній — поля працюють як звичайні текстові поля вручну.
-  const NP_API_KEY = '';
+  const NP_API_KEY = '70f7c75af625ee763b73b6d4d76a60af';
 
   let selectedCityRef = null;
   let citySuggestTimer = null;

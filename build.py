@@ -13,6 +13,7 @@ import json
 import os
 import re
 import html
+from datetime import date
 
 SITE_URL = "https://smartstoreua.com"
 
@@ -99,6 +100,7 @@ FOOTER_HTML = """<footer>
       <h4>Компанія</h4>
       <a href="{root}index.html#why">Про нас</a>
       <a href="{root}index.html#contacts">Контакти</a>
+      <a href="{root}reviews.html">Відгуки</a>
     </div>
     <div>
       <h4>Контакти</h4>
@@ -408,7 +410,8 @@ def main():
     os.makedirs("product", exist_ok=True)
     os.makedirs("category", exist_ok=True)
 
-    urls = [f"{SITE_URL}/", f"{SITE_URL}/index.html"]
+    today = date.today().isoformat()
+    urls = [f"{SITE_URL}/", f"{SITE_URL}/reviews.html"]
 
     # product pages
     seen_slugs = set()
@@ -431,7 +434,7 @@ def main():
     # sitemap.xml
     parts = ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
     for u in urls:
-        parts.append(f"  <url><loc>{u}</loc></url>")
+        parts.append(f"  <url><loc>{u}</loc><lastmod>{today}</lastmod></url>")
     parts.append("</urlset>")
     with open("sitemap.xml", "w", encoding="utf-8") as f:
         f.write("\n".join(parts) + "\n")
