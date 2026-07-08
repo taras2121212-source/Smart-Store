@@ -48,6 +48,42 @@ def fmt_price(n):
     return f"{n:,}".replace(",", " ") + " ₴"
 
 
+def discount_pct(p):
+    old = p.get("oldPrice")
+    if not old or float(old) <= float(p["price"]):
+        return 0
+    return round((1 - float(p["price"]) / float(old)) * 100)
+
+
+def sale_badge_html(p):
+    d = discount_pct(p)
+    return f'<span class="sale-badge">-{d}%</span>' if d > 0 else ""
+
+
+def price_block_html(p):
+    """Small price block used on product cards (grid/related/category)."""
+    d = discount_pct(p)
+    if d <= 0:
+        return f'<div class="prod-price">{fmt_price(p["price"])}</div>'
+    return (
+        f'<div class="price-wrap">'
+        f'<span class="old-price">{fmt_price(p["oldPrice"])}</span>'
+        f'<span class="prod-price">{fmt_price(p["price"])}</span>'
+        f'</div>'
+    )
+
+
+def pdp_price_html(p):
+    """Big price block used on the single product page."""
+    d = discount_pct(p)
+    if d <= 0:
+        return f'<div class="pdp-price">{fmt_price(p["price"])}</div>'
+    return (
+        f'<div class="pdp-old-price">{fmt_price(p["oldPrice"])}</div>'
+        f'<div class="pdp-price">{fmt_price(p["price"])}</div>'
+    )
+
+
 def load_products():
     with open("products.json", encoding="utf-8") as f:
         data = json.load(f)
@@ -207,6 +243,7 @@ def render_product_page(p, products, cat_slugs):
         <a class="prod-card" href="{r['id']}-{slugify(r['name'])}.html">
           <div class="prod-media">
             <span class="prod-badge {'' if r_in else 'out'}">{'В наявності' if r_in else 'Немає в наявності'}</span>
+            {sale_badge_html(r)}
             <img src="{esc(r['img'])}" alt="{esc(r['name'])}" loading="lazy"
                  onerror="this.style.display='none'; this.parentNode.insertAdjacentHTML('beforeend','<div style=&quot;font-size:40px&quot;>{CAT_ICONS.get(r['cat'],'📦')}</div>')">
           </div>
@@ -215,7 +252,7 @@ def render_product_page(p, products, cat_slugs):
             <div class="prod-name">{esc(r['name'])}</div>
             <div class="prod-spec">{esc((r.get('spec') or '')[:90])}</div>
             <div class="prod-foot">
-              <div class="prod-price">{fmt_price(r['price'])}</div>
+              {price_block_html(r)}
               <button class="add-btn" onclick="event.preventDefault(); event.stopPropagation(); pageAddToCart({r['id']})">Купити +</button>
             </div>
           </div>
@@ -264,6 +301,7 @@ def render_product_page(p, products, cat_slugs):
 <section class="pdp">
   <div class="pdp-media">
     {stock_badge}
+    {sale_badge_html(p)}
     <img src="{esc(p['img'])}" alt="{esc(p['name'])}"
          onerror="this.style.display='none'; this.parentNode.insertAdjacentHTML('beforeend','<div style=&quot;font-size:64px&quot;>{CAT_ICONS.get(p['cat'],'📦')}</div>')">
   </div>
@@ -271,7 +309,7 @@ def render_product_page(p, products, cat_slugs):
     <div class="pdp-cat">{cat_link}</div>
     <h1>{esc(p['name'])}</h1>
     <div class="pdp-meta"><div>Категорія: <b>{esc(p['cat'])}</b></div><div>Артикул: <b>SS-{p['id']}</b></div></div>
-    <div class="pdp-price">{price_txt}</div>
+    {pdp_price_html(p)}
     <div class="pdp-spec">{esc(desc) if desc else 'Опис уточнюйте у менеджера.'}</div>
     <div class="pdp-cta">
       <button class="btn btn-primary" onclick="pageBuyNow({p['id']})">Купити зараз</button>
@@ -326,6 +364,7 @@ def render_category_page(cat, products_in_cat, all_counts, cat_slugs):
         <a class="prod-card" href="../product/{r['id']}-{slugify(r['name'])}.html">
           <div class="prod-media">
             <span class="prod-badge {'' if r_in else 'out'}">{'В наявності' if r_in else 'Немає в наявності'}</span>
+            {sale_badge_html(r)}
             <img src="{esc(r['img'])}" alt="{esc(r['name'])}" loading="lazy"
                  onerror="this.style.display='none'; this.parentNode.insertAdjacentHTML('beforeend','<div style=&quot;font-size:40px&quot;>{CAT_ICONS.get(r['cat'],'📦')}</div>')">
           </div>
@@ -334,7 +373,7 @@ def render_category_page(cat, products_in_cat, all_counts, cat_slugs):
             <div class="prod-name">{esc(r['name'])}</div>
             <div class="prod-spec">{esc((r.get('spec') or '')[:90])}</div>
             <div class="prod-foot">
-              <div class="prod-price">{fmt_price(r['price'])}</div>
+              {price_block_html(r)}
               <button class="add-btn" onclick="event.preventDefault(); event.stopPropagation(); pageAddToCart({r['id']})">Купити +</button>
             </div>
           </div>

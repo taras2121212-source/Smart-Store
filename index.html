@@ -203,8 +203,6 @@
           <select name="delivery" id="deliverySelect" onchange="onDeliveryChange()">
             <option>Нова Пошта — відділення</option>
             <option>Нова Пошта — поштомат</option>
-            <option>Кур'єр по місту</option>
-            <option>Самовивіз</option>
           </select>
         </div>
         <div class="field" id="branchField">
@@ -386,6 +384,21 @@
   function saveCart(){ try{ localStorage.setItem('smartstore_cart', JSON.stringify(cart)); }catch(e){} }
 
   const fmt = n => n.toLocaleString('uk-UA') + ' ₴';
+
+  // ---------- discounts ----------
+  function discountPct(p){
+    if(!p.oldPrice || Number(p.oldPrice) <= Number(p.price)) return 0;
+    return Math.round((1 - p.price / p.oldPrice) * 100);
+  }
+  function saleBadgeHtml(p){
+    const d = discountPct(p);
+    return d > 0 ? `<span class="sale-badge">-${d}%</span>` : '';
+  }
+  function priceBlockHtml(p){
+    const d = discountPct(p);
+    if(d <= 0) return `<div class="prod-price">${fmt(p.price)}</div>`;
+    return `<div class="price-wrap"><span class="old-price">${fmt(p.oldPrice)}</span><span class="prod-price">${fmt(p.price)}</span></div>`;
+  }
   const esc = s => (s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
   // ---------- slug helper (must match Python build script mapping) ----------
@@ -499,6 +512,7 @@
         <a class="prod-card" href="product/${p.id}-${slugify(p.name)}.html">
           <div class="prod-media">
             <span class="prod-badge ${inStock?'':'out'}">${inStock?'В наявності':'Немає в наявності'}</span>
+            ${saleBadgeHtml(p)}
             <img src="${esc(p.img)}" alt="${esc(p.name)}" loading="lazy"
                  onerror="this.style.display='none'; this.parentNode.insertAdjacentHTML('beforeend','<div style=&quot;font-size:40px&quot;>${CAT_ICONS[p.cat]||'📦'}</div>')">
           </div>
@@ -507,7 +521,7 @@
             <div class="prod-name">${esc(p.name)}</div>
             <div class="prod-spec">${esc(p.spec || '')}</div>
             <div class="prod-foot">
-              <div class="prod-price">${fmt(p.price)}</div>
+              ${priceBlockHtml(p)}
               <button class="add-btn" onclick="event.preventDefault(); event.stopPropagation(); addToCart(${p.id})">Купити +</button>
             </div>
           </div>
@@ -671,16 +685,6 @@
     const sel = document.getElementById('branchSelect');
     const txt = document.getElementById('branchInput');
     const hint = document.getElementById('npHint');
-    const isNP = delivery.indexOf('Нова Пошта') === 0;
-
-    if(!isNP){
-      label.textContent = delivery === 'Самовивіз' ? 'Коментар (необов’язково)' : 'Адреса доставки';
-      sel.style.display = 'none'; sel.disabled = true; sel.innerHTML = '';
-      txt.style.display = 'block'; txt.disabled = false;
-      txt.placeholder = delivery === 'Самовивіз' ? 'Напр. зручний час самовивозу' : 'Напр. вул. Шевченка, 10';
-      hint.textContent = '';
-      return;
-    }
 
     const wantPostomat = delivery.indexOf('поштомат') !== -1;
     label.textContent = wantPostomat ? 'Поштомат' : 'Відділення';
@@ -718,25 +722,52 @@
       });
   }
 
-  // ---------- order submit (Netlify Forms via AJAX) ----------
+  // ---------- order submit ----------
+  // Замовлення надсилається одразу у двох напрямках:
+  // 1) Netlify Forms — щоб надходили email-сповіщення (як і раніше);
+  // 2) Netlify Function /.netlify/functions/orders — щоб замовлення з'являлось
+  //    у вкладці "Замовлення" адмінки (admin.html) для обробки менеджером.
+  // Якщо один зі способів дасть збій, а інший спрацює — замовлення все одно не загубиться.
   document.getElementById('orderForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target;
     const btn = document.getElementById('submitOrderBtn');
     btn.disabled = true; btn.textContent = 'Надсилаємо…';
-    try{
-      const res = await fetch('/', {
-        method:'POST',
-        headers:{'Content-Type':'application/x-www-form-urlencoded'},
-        body: new URLSearchParams(new FormData(form)).toString()
-      });
-      if(!res.ok) throw new Error('bad status');
+
+    const fd = new FormData(form);
+    const orderPayload = {
+      name: fd.get('name') || '',
+      phone: fd.get('phone') || '',
+      city: fd.get('city') || '',
+      delivery: fd.get('delivery') || '',
+      branch: fd.get('branch') || '',
+      payment: fd.get('payment') || '',
+      comment: fd.get('comment') || '',
+      items: fd.get('order') || '',
+      total: fd.get('total') || ''
+    };
+
+    const netlifyFormsPromise = fetch('/', {
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body: new URLSearchParams(fd).toString()
+    }).catch(() => null);
+
+    const adminOrderPromise = fetch('/.netlify/functions/orders', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(orderPayload)
+    }).catch(() => null);
+
+    const [formsRes, orderRes] = await Promise.all([netlifyFormsPromise, adminOrderPromise]);
+
+    if((formsRes && formsRes.ok) || (orderRes && orderRes.ok)){
       cart = {}; saveCart(); renderCart();
       form.reset();
       selectedCityRef = null;
       loadBranchesForCurrentSelection();
       showView('success');
-    }catch(err){
+    } else {
       showToast('Помилка надсилання. Спробуйте ще раз.');
       btn.disabled = false; btn.textContent = 'Підтвердити замовлення';
     }
@@ -754,6 +785,7 @@
     document.getElementById('productBody').innerHTML = `
       <div class="product-media-lg">
         <span class="prod-badge ${inStock?'':'out'}" style="position:absolute; top:12px; left:12px;">${inStock?'В наявності':'Немає в наявності'}</span>
+        ${saleBadgeHtml(p)}
         <img src="${esc(p.img)}" alt="${esc(p.name)}"
              onerror="this.style.display='none'; this.parentNode.insertAdjacentHTML('beforeend','<div style=&quot;font-size:56px&quot;>${CAT_ICONS[p.cat]||'📦'}</div>')">
       </div>
@@ -766,7 +798,10 @@
       </div>
       <div class="product-spec-lg">${esc(p.spec || 'Опис уточнюйте у менеджера.')}</div>
       <div class="product-buy-row">
-        <div class="product-price-lg">${fmt(p.price)}</div>
+        <div>
+          ${discountPct(p) > 0 ? `<div class="pdp-old-price">${fmt(p.oldPrice)}</div>` : ''}
+          <div class="product-price-lg">${fmt(p.price)}</div>
+        </div>
         <button class="btn btn-primary" onclick="addToCart(${p.id}); closeProduct();">Купити +</button>
       </div>
       ${!inStock ? '<div class="info-note">Цього товару зараз немає в наявності на складі. Ви можете додати його в кошик — менеджер уточнить термін надходження після оформлення замовлення.</div>' : ''}

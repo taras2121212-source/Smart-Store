@@ -1,0 +1,9 @@
+{
+  "name": "smart-store-site",
+  "private": true,
+  "version": "1.0.0",
+  "description": "SMART STORE — статичний сайт + Netlify Function для прийому замовлень",
+  "dependencies": {
+    "@netlify/blobs": "^8.1.0"
+  }
+}

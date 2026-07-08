@@ -52,6 +52,15 @@
   .notice b{ color:var(--text); }
   .notice.warn{ border-color:rgba(255,143,143,0.4); }
 
+  .tabs{ display:flex; gap:8px; margin-bottom:18px; }
+  .tab-btn{ padding:9px 16px; border-radius:10px; font-size:13.5px; font-weight:600; cursor:pointer; border:1px solid var(--line); background:var(--panel-alt); color:var(--muted); }
+  .tab-btn:hover{ color:var(--text); }
+  .tab-btn.active{ background:var(--text); color:var(--ink); border-color:var(--text); }
+  .tab-badge{ background:var(--red); color:#1a1a1a; border-radius:20px; font-size:11px; font-weight:700; padding:2px 7px; margin-left:6px; }
+
+  .img-upload-row{ display:flex; gap:12px; align-items:center; }
+  .img-preview-thumb{ width:64px; height:64px; }
+
   .toolbar{ display:flex; gap:12px; flex-wrap:wrap; margin-bottom:18px; align-items:center; }
   .toolbar input[type=search], .toolbar select{
     background:var(--panel-alt); border:1px solid var(--line); border-radius:10px; color:var(--text);
@@ -140,34 +149,73 @@
     </div>
   </header>
 
-  <div class="notice" id="mainNotice">
-    Це редактор каталогу для сайту, який не має власного сервера — тому зміни зберігаються у файл
-    <b class="mono">products.json</b>, а не «на льоту». Порядок такий:
-    1) редагуйте товари тут як завгодно (додавайте, змінюйте ціни й наявність);
-    2) натисніть «Зберегти products.json» — завантажиться оновлений файл;
-    3) замініть ним файл <b class="mono">products.json</b> там, де розміщений сайт (хостинг / Netlify / GitHub) —
-    і зміни з'являться для всіх відвідувачів. Поки не замінили файл на сервері, чернетка зберігається лише
-    у цьому браузері.
+  <div class="tabs">
+    <button class="tab-btn active" id="tabProductsBtn" onclick="switchTab('products')">Товари</button>
+    <button class="tab-btn" id="tabOrdersBtn" onclick="switchTab('orders')">Замовлення<span class="tab-badge" id="ordersBadge" style="display:none;"></span></button>
   </div>
 
-  <div class="toolbar">
-    <input type="search" id="searchBox" placeholder="Пошук за назвою…" oninput="renderTable()">
-    <select id="catFilter" onchange="renderTable()"><option value="Всі">Категорія: всі</option></select>
-    <select id="stockFilter" onchange="renderTable()">
-      <option value="Всі">Наявність: всі</option>
-      <option value="in">У наявності</option>
-      <option value="out">Немає в наявності</option>
-    </select>
-    <button class="btn btn-primary" onclick="openModal()">+ Додати товар</button>
-    <span class="count-tag" id="countTag"></span>
+  <div id="productsPanel">
+    <div class="notice" id="mainNotice">
+      Це редактор каталогу для сайту, який не має власного сервера — тому зміни зберігаються у файл
+      <b class="mono">products.json</b>, а не «на льоту». Порядок такий:
+      1) редагуйте товари тут як завгодно (додавайте, змінюйте ціни й наявність, фото);
+      2) натисніть «Зберегти products.json» — завантажиться оновлений файл;
+      3) замініть ним файл <b class="mono">products.json</b> там, де розміщений сайт (хостинг / Netlify / GitHub) —
+      і зміни з'являться для всіх відвідувачів. Поки не замінили файл на сервері, чернетка зберігається лише
+      у цьому браузері.
+    </div>
+
+    <div class="toolbar">
+      <input type="search" id="searchBox" placeholder="Пошук за назвою…" oninput="renderTable()">
+      <select id="catFilter" onchange="renderTable()"><option value="Всі">Категорія: всі</option></select>
+      <select id="stockFilter" onchange="renderTable()">
+        <option value="Всі">Наявність: всі</option>
+        <option value="in">У наявності</option>
+        <option value="out">Немає в наявності</option>
+      </select>
+      <select id="saleFilter" onchange="renderTable()">
+        <option value="Всі">Знижка: всі</option>
+        <option value="sale">Зі знижкою</option>
+        <option value="nosale">Без знижки</option>
+      </select>
+      <button class="btn btn-primary" onclick="openModal()">+ Додати товар</button>
+      <span class="count-tag" id="countTag"></span>
+    </div>
+
+    <table>
+      <thead>
+        <tr><th>Товар</th><th>Ціна</th><th>Наявність</th><th></th></tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
   </div>
 
-  <table>
-    <thead>
-      <tr><th>Товар</th><th>Ціна</th><th>Наявність</th><th></th></tr>
-    </thead>
-    <tbody id="tbody"></tbody>
-  </table>
+  <div id="ordersPanel" style="display:none;">
+    <div class="notice" id="ordersNotice">
+      Замовлення, які клієнти оформлюють на сайті, надходять сюди автоматично (через Netlify Function) —
+      нічого вручну завантажувати не потрібно. Змінюйте статус замовлення у випадаючому списку
+      (Нове → В обробці → Виконано, або Скасовано) та видаляйте оброблені, якщо вони більше не потрібні.
+    </div>
+
+    <div class="toolbar">
+      <select id="orderStatusFilter" onchange="renderOrders()">
+        <option value="Всі">Статус: всі</option>
+        <option value="new">Нові</option>
+        <option value="processing">В обробці</option>
+        <option value="done">Виконані</option>
+        <option value="cancelled">Скасовані</option>
+      </select>
+      <button class="btn" onclick="loadOrders()">↻ Оновити</button>
+      <span class="count-tag" id="ordersCountTag"></span>
+    </div>
+
+    <table>
+      <thead>
+        <tr><th>Дата</th><th>Клієнт</th><th>Товари</th><th>Сума</th><th>Доставка</th><th>Оплата</th><th>Статус</th><th></th></tr>
+      </thead>
+      <tbody id="ordersTbody"><tr class="empty-row"><td colspan="8">Завантаження…</td></tr></tbody>
+    </table>
+  </div>
 </div>
 
 <div class="overlay" id="modalOverlay">
@@ -178,13 +226,25 @@
       <div class="field"><label>Назва товару *</label><input id="fName" required placeholder="Напр. Чохол Blueo для iPhone 15"></div>
       <div class="field-row">
         <div class="field"><label>Ціна (грн) *</label><input id="fPrice" type="number" min="0" step="1" required placeholder="699"></div>
-        <div class="field"><label>Категорія *</label>
-          <input id="fCat" required list="catList" placeholder="Напр. Чохли iPhone">
-          <datalist id="catList"></datalist>
-        </div>
+        <div class="field"><label>Стара ціна (для знижки, необов'язково)</label><input id="fOldPrice" type="number" min="0" step="1" placeholder="Напр. 899"></div>
       </div>
+      <div class="field"><label>Категорія *</label>
+        <input id="fCat" required list="catList" placeholder="Напр. Чохли iPhone">
+        <datalist id="catList"></datalist>
+      </div>
+      <div class="hint" style="margin-top:-8px; margin-bottom:6px;">Якщо вказати стару ціну (більшу за поточну) — на сайті покажеться закреслена стара ціна і бейдж знижки «-XX%».</div>
       <div class="field"><label>Група / серія (необов'язково)</label><input id="fGroup" placeholder="Напр. Чехлы Blueo"></div>
-      <div class="field"><label>Посилання на фото (URL)</label><input id="fImg" placeholder="https://..."></div>
+      <div class="field">
+        <label>Фото товару</label>
+        <div class="img-upload-row">
+          <div class="thumb img-preview-thumb"><img id="imgPreview" src="" alt="" style="display:none;" onerror="this.style.display='none'"></div>
+          <div style="flex:1; display:flex; flex-direction:column; gap:6px;">
+            <input type="file" id="fImgFile" accept="image/*" onchange="handleImgFile(this.files[0])">
+            <div class="hint" id="imgFileHint">Оберіть файл фото — він автоматично конвертується у JPG</div>
+          </div>
+        </div>
+        <input type="hidden" id="fImg">
+      </div>
       <div class="field"><label>Опис товару</label><textarea id="fSpec" placeholder="Повний опис товару для картки"></textarea></div>
       <div class="field checkline"><input type="checkbox" id="fAvailable" checked><label for="fAvailable" style="font-size:13px; color:var(--text);">Товар у наявності</label></div>
       <div class="hint" id="idHint"></div>
@@ -209,6 +269,7 @@
       sessionStorage.setItem('ss_admin_ok','1');
       document.getElementById('gate').style.display = 'none';
       document.getElementById('wrap').classList.add('show');
+      loadOrders();
     } else {
       document.getElementById('gateErr').textContent = 'Невірний пароль';
     }
@@ -216,7 +277,9 @@
   if(sessionStorage.getItem('ss_admin_ok') === '1'){
     document.getElementById('gate').style.display = 'none';
     document.getElementById('wrap').classList.add('show');
+    loadOrders();
   }
+  setInterval(() => { if(sessionStorage.getItem('ss_admin_ok') === '1') loadOrders(); }, 45000);
 
   let products = [];
   const DRAFT_KEY = 'smartstore_admin_draft';
@@ -259,15 +322,23 @@
     document.getElementById('catList').innerHTML = cats.map(c=>`<option value="${esc(c)}">`).join('');
   }
 
+  function discountPct(p){
+    if(!p.oldPrice || Number(p.oldPrice) <= Number(p.price)) return 0;
+    return Math.round((1 - p.price / p.oldPrice) * 100);
+  }
+
   function filteredProducts(){
     const q = document.getElementById('searchBox').value.trim().toLowerCase();
     const cat = document.getElementById('catFilter').value;
     const stock = document.getElementById('stockFilter').value;
+    const sale = document.getElementById('saleFilter').value;
     return products.filter(p=>{
       if(q && !p.name.toLowerCase().includes(q)) return false;
       if(cat !== 'Всі' && p.cat !== cat) return false;
       if(stock === 'in' && !p.available) return false;
       if(stock === 'out' && p.available) return false;
+      if(sale === 'sale' && discountPct(p) <= 0) return false;
+      if(sale === 'nosale' && discountPct(p) > 0) return false;
       return true;
     });
   }
@@ -280,7 +351,12 @@
       body.innerHTML = '<tr class="empty-row"><td colspan="4">Товарів не знайдено</td></tr>';
       return;
     }
-    body.innerHTML = list.map(p => `
+    body.innerHTML = list.map(p => {
+      const d = discountPct(p);
+      const priceCell = d > 0
+        ? `<div style="text-decoration:line-through; color:var(--muted); font-size:11.5px;">${fmt(p.oldPrice)}</div><div>${fmt(p.price)} <span style="color:var(--red); font-weight:700; font-size:11px;">-${d}%</span></div>`
+        : fmt(p.price);
+      return `
       <tr>
         <td data-label="Товар">
           <div class="name-cell">
@@ -291,7 +367,7 @@
             </div>
           </div>
         </td>
-        <td data-label="Ціна" class="price-cell">${fmt(p.price)}</td>
+        <td data-label="Ціна" class="price-cell">${priceCell}</td>
         <td data-label="Наявність">
           <span class="stock-pill ${p.available?'in':'out'}" onclick="toggleStock(${p.id})">
             <span class="sw"></span>${p.available?'У наявності':'Немає в наявності'}
@@ -303,7 +379,8 @@
             <button class="icon-btn del" title="Видалити" onclick="deleteProduct(${p.id})">✕</button>
           </div>
         </td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
   }
 
   function toggleStock(id){
@@ -327,6 +404,8 @@
   function openModal(id){
     document.getElementById('productForm').reset();
     document.getElementById('fAvailable').checked = true;
+    document.getElementById('fImgFile').value = '';
+    const preview = document.getElementById('imgPreview');
     if(id){
       const p = products.find(pr=>pr.id===id);
       if(!p) return;
@@ -334,18 +413,59 @@
       document.getElementById('fId').value = p.id;
       document.getElementById('fName').value = p.name;
       document.getElementById('fPrice').value = p.price;
+      document.getElementById('fOldPrice').value = p.oldPrice || '';
       document.getElementById('fCat').value = p.cat;
       document.getElementById('fGroup').value = p.group || '';
       document.getElementById('fImg').value = p.img || '';
       document.getElementById('fSpec').value = p.spec || '';
       document.getElementById('fAvailable').checked = !!p.available;
       document.getElementById('idHint').textContent = 'ID товару: ' + p.id;
+      if(p.img){ preview.src = p.img; preview.style.display = 'block'; } else { preview.style.display = 'none'; preview.src=''; }
+      document.getElementById('imgFileHint').textContent = 'Поточне фото збережено. Оберіть новий файл, щоб замінити.';
     } else {
       document.getElementById('modalTitle').textContent = 'Додати товар';
       document.getElementById('fId').value = '';
+      document.getElementById('fImg').value = '';
+      document.getElementById('fOldPrice').value = '';
       document.getElementById('idHint').textContent = 'ID буде присвоєно автоматично';
+      preview.style.display = 'none'; preview.src = '';
+      document.getElementById('imgFileHint').textContent = 'Оберіть файл фото — він автоматично конвертується у JPG';
     }
     document.getElementById('modalOverlay').classList.add('open');
+  }
+
+  // ---------- image upload: converts any selected image to a compressed JPG data-URL ----------
+  function handleImgFile(file){
+    if(!file) return;
+    const hint = document.getElementById('imgFileHint');
+    hint.textContent = 'Обробка зображення…';
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 1000;
+        let w = img.width, h = img.height;
+        if(w > maxDim || h > maxDim){
+          if(w >= h){ h = Math.round(h * maxDim / w); w = maxDim; }
+          else { w = Math.round(w * maxDim / h); h = maxDim; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+        document.getElementById('fImg').value = dataUrl;
+        const preview = document.getElementById('imgPreview');
+        preview.src = dataUrl; preview.style.display = 'block';
+        hint.textContent = 'Фото готове (JPG, ~' + Math.round(dataUrl.length/1024) + ' КБ)';
+      };
+      img.onerror = () => { hint.textContent = 'Не вдалось прочитати зображення'; };
+      img.src = ev.target.result;
+    };
+    reader.onerror = () => { hint.textContent = 'Помилка читання файлу'; };
+    reader.readAsDataURL(file);
   }
   function closeModal(){ document.getElementById('modalOverlay').classList.remove('open'); }
   document.getElementById('modalOverlay').addEventListener('click', e=>{ if(e.target.id==='modalOverlay') closeModal(); });
@@ -355,6 +475,8 @@
     const idVal = document.getElementById('fId').value;
     const name = document.getElementById('fName').value.trim();
     const price = parseFloat(document.getElementById('fPrice').value) || 0;
+    const oldPriceRaw = parseFloat(document.getElementById('fOldPrice').value);
+    const oldPrice = (oldPriceRaw && oldPriceRaw > price) ? oldPriceRaw : null;
     const cat = document.getElementById('fCat').value.trim();
     const group = document.getElementById('fGroup').value.trim();
     const img = document.getElementById('fImg').value.trim();
@@ -363,11 +485,16 @@
 
     if(idVal){
       const p = products.find(pr=>pr.id===parseInt(idVal));
-      if(p){ Object.assign(p, {name, price, cat, group, img, spec, available}); }
+      if(p){
+        Object.assign(p, {name, price, cat, group, img, spec, available});
+        if(oldPrice){ p.oldPrice = oldPrice; } else { delete p.oldPrice; }
+      }
       showToast('Товар оновлено');
     } else {
       const newId = products.length ? Math.max(...products.map(p=>p.id)) + 1 : 1;
-      products.push({ id:newId, name, price, cur:'UAH', cat, group, img, available, spec });
+      const newP = { id:newId, name, price, cur:'UAH', cat, group, img, available, spec };
+      if(oldPrice) newP.oldPrice = oldPrice;
+      products.push(newP);
       showToast('Товар додано');
     }
     saveDraft();
@@ -419,6 +546,111 @@
     t.textContent = msg; t.classList.add('show');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(()=>t.classList.remove('show'), 2200);
+  }
+
+  // ---------- tabs ----------
+  function switchTab(tab){
+    document.getElementById('tabProductsBtn').classList.toggle('active', tab === 'products');
+    document.getElementById('tabOrdersBtn').classList.toggle('active', tab === 'orders');
+    document.getElementById('productsPanel').style.display = tab === 'products' ? 'block' : 'none';
+    document.getElementById('ordersPanel').style.display = tab === 'orders' ? 'block' : 'none';
+    if(tab === 'orders') loadOrders();
+  }
+
+  // ---------- orders (via Netlify Function /.netlify/functions/orders) ----------
+  let orders = [];
+  const ORDERS_ENDPOINT = '/.netlify/functions/orders';
+  const STATUS_LABELS = { new:'Нове', processing:'В обробці', done:'Виконано', cancelled:'Скасовано' };
+
+  async function loadOrders(){
+    const tbody = document.getElementById('ordersTbody');
+    try{
+      const res = await fetch(ORDERS_ENDPOINT, { headers: { 'x-admin-pass': GATE_PASSWORD } });
+      if(!res.ok) throw new Error('http ' + res.status);
+      const data = await res.json();
+      orders = data.orders || [];
+      updateOrdersBadge();
+      renderOrders();
+    }catch(e){
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="8">Не вдалось завантажити замовлення. Це працює лише після публікації сайту на Netlify (з підключеною функцією netlify/functions/orders.js).</td></tr>';
+    }
+  }
+
+  function updateOrdersBadge(){
+    const badge = document.getElementById('ordersBadge');
+    const newCount = orders.filter(o => o.status === 'new').length;
+    if(newCount > 0){ badge.style.display = 'inline-block'; badge.textContent = newCount; }
+    else { badge.style.display = 'none'; }
+  }
+
+  function renderOrders(){
+    const filter = document.getElementById('orderStatusFilter').value;
+    const list = filter === 'Всі' ? orders : orders.filter(o => o.status === filter);
+    const tbody = document.getElementById('ordersTbody');
+    document.getElementById('ordersCountTag').textContent = `${list.length} з ${orders.length} замовлень`;
+    if(list.length === 0){
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="8">Замовлень не знайдено</td></tr>';
+      return;
+    }
+    tbody.innerHTML = list.map(o => `
+      <tr>
+        <td data-label="Дата">${esc(formatOrderDate(o.createdAt))}</td>
+        <td data-label="Клієнт"><div class="nm">${esc(o.name)}</div><div class="cat">${esc(o.phone)}</div></td>
+        <td data-label="Товари" style="max-width:260px; white-space:pre-wrap; font-size:12px;">${esc(o.items)}</td>
+        <td data-label="Сума" class="price-cell">${esc(o.total)}</td>
+        <td data-label="Доставка" style="font-size:12px;">${esc(o.delivery)}${o.branch ? '<br>' + esc(o.branch) : ''}<br>${esc(o.city)}</td>
+        <td data-label="Оплата" style="font-size:12px;">${esc(o.payment)}</td>
+        <td data-label="Статус">
+          <select onchange="changeOrderStatus('${o.id}', this.value)">
+            ${Object.entries(STATUS_LABELS).map(([k,l]) => `<option value="${k}" ${o.status===k?'selected':''}>${l}</option>`).join('')}
+          </select>
+        </td>
+        <td data-label="">
+          <button class="icon-btn del" title="Видалити" onclick="deleteOrder('${o.id}')">✕</button>
+        </td>
+      </tr>`).join('');
+  }
+
+  function formatOrderDate(iso){
+    if(!iso) return '';
+    const d = new Date(iso);
+    if(isNaN(d)) return '';
+    return d.toLocaleString('uk-UA', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' });
+  }
+
+  async function changeOrderStatus(id, status){
+    try{
+      const res = await fetch(ORDERS_ENDPOINT, {
+        method: 'PATCH',
+        headers: { 'Content-Type':'application/json', 'x-admin-pass': GATE_PASSWORD },
+        body: JSON.stringify({ id, status })
+      });
+      if(!res.ok) throw new Error();
+      const o = orders.find(x => x.id === id);
+      if(o) o.status = status;
+      updateOrdersBadge();
+      showToast('Статус замовлення оновлено');
+    }catch(e){
+      showToast('Не вдалось оновити статус');
+      loadOrders();
+    }
+  }
+
+  async function deleteOrder(id){
+    if(!confirm('Видалити це замовлення?')) return;
+    try{
+      const res = await fetch(`${ORDERS_ENDPOINT}?id=${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: { 'x-admin-pass': GATE_PASSWORD }
+      });
+      if(!res.ok) throw new Error();
+      orders = orders.filter(o => o.id !== id);
+      updateOrdersBadge();
+      renderOrders();
+      showToast('Замовлення видалено');
+    }catch(e){
+      showToast('Не вдалось видалити замовлення');
+    }
   }
 
   loadInitial();
