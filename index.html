@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SMART STORE — аксесуари для мобільних: чохли, кабелі, зарядки, навушники</title>
+<meta name="description" content="Чохли, захисне скло, кабелі, зарядні пристрої, навушники та тримачі для iPhone, iPad, Apple Watch і AirPods. Доставка по Україні 2-3 дні, гарантія на техніку.">
+<link rel="canonical" href="https://smartstoreua.com/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="SMART STORE — аксесуари для мобільних">
+<meta property="og:description" content="Чохли, захисне скло, кабелі, зарядні пристрої, навушники та тримачі для iPhone, iPad, Apple Watch і AirPods.">
+<meta property="og:url" content="https://smartstoreua.com/">
+<link rel="icon" type="image/jpeg" href="logo.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<div class="battery-track"><div class="battery-fill" id="batteryFill"></div></div>
+<div class="battery-readout"><div class="battery-icon"><i id="battIcon"></i></div><span id="battPct" class="mono">0%</span></div>
+
+<header>
+  <div class="logo"><img src="logo.jpg" alt="SMART STORE логотип">SMART STORE</div>
+  <nav class="links">
+    <a href="#categories">Категорії</a>
+    <a href="#products">Товари</a>
+    <a href="#why">Чому ми</a>
+    <a href="#contacts">Контакти</a>
+  </nav>
+  <div class="header-actions">
+    <div class="cart-btn" role="button" tabindex="0" onclick="openCart()" onkeydown="if(event.key==='Enter')openCart()">Кошик <span class="cart-count" id="cartCount">0</span></div>
+    <button class="burger" aria-label="Меню" onclick="toggleMobileNav()"><span></span></button>
+  </div>
+</header>
+<div class="mobile-nav" id="mobileNav">
+  <div class="panel">
+    <a href="#categories" onclick="toggleMobileNav()">Категорії</a>
+    <a href="#products" onclick="toggleMobileNav()">Товари</a>
+    <a href="#why" onclick="toggleMobileNav()">Чому ми</a>
+    <a href="#contacts" onclick="toggleMobileNav()">Контакти</a>
+  </div>
+</div>
+
+<section class="hero">
+  <div>
+    <div class="eyebrow">Аксесуари для смартфонів</div>
+    <h1>Твій телефон заслуговує <span class="accent">повного заряду</span> стилю</h1>
+    <p>Чохли, кабелі, зарядні пристрої, навушники та тримачі — все, щоб гаджет служив довше і виглядав так, як треба саме тобі.</p>
+    <div class="cta-row">
+      <button class="btn btn-primary" onclick="document.getElementById('products').scrollIntoView({behavior:'smooth'})">Дивитись каталог</button>
+      <a href="#contacts"><button class="btn btn-ghost">Зв'язатися з нами</button></a>
+    </div>
+  </div>
+  <div class="hero-visual">
+    <div class="charge-orb">
+      <svg class="ring-svg" width="328" height="328" viewBox="0 0 328 328">
+        <circle cx="164" cy="164" r="150" fill="none" stroke="rgba(236,235,230,0.08)" stroke-width="3"/>
+        <circle id="orbCircle" cx="164" cy="164" r="150" fill="none" stroke="url(#grad)" stroke-width="3" stroke-linecap="round" stroke-dasharray="942" stroke-dashoffset="700"/>
+        <defs><linearGradient id="grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#ffb03b"/><stop offset="100%" stop-color="#22d3b0"/></linearGradient></defs>
+      </svg>
+      <div class="pct" id="orbPct">26<span>%</span></div>
+      <div class="orbit-tag ot1"><span class="sw"></span>Швидка зарядка 65Вт</div>
+      <div class="orbit-tag ot2"><span class="sw"></span>Оригінальні матеріали</div>
+    </div>
+  </div>
+</section>
+
+<div class="trust">
+  <div><b>2–3 дні</b>&nbsp;доставка по Україні</div>
+  <div><b>14 днів</b>&nbsp;на повернення</div>
+  <div><b>12 міс</b>&nbsp;гарантія на техніку</div>
+  <div><b id="trustCount">150+</b>&nbsp;товарів у каталозі</div>
+</div>
+
+<section class="block" id="categories">
+  <div class="section-head">
+    <div>
+      <span class="tag-mono eyebrow" style="margin-bottom:10px; display:inline-flex;">Каталог</span>
+      <h2>Категорії товарів</h2>
+    </div>
+    <p>Від захисного скла до потужних павербанків — обирай за потребою.</p>
+  </div>
+  <div class="cat-grid" id="catGrid"></div>
+</section>
+
+<section class="block" id="products">
+  <div class="section-head">
+    <div>
+      <span class="tag-mono eyebrow" style="margin-bottom:10px; display:inline-flex;">Каталог товарів</span>
+      <h2>Наші товари</h2>
+    </div>
+    <p>Оригінальні аксесуари з прайс-листа магазину. Обирай категорію та додавай у кошик.</p>
+  </div>
+  <div class="filter-bar" id="filterBar"></div>
+  <div class="facet-row" id="facetRow">
+    <select id="modelFilter" onchange="setModel(this.value)">
+      <option value="Всі">Модель: всі</option>
+    </select>
+    <select id="colorFilter" onchange="setColor(this.value)">
+      <option value="Всі">Колір: всі</option>
+    </select>
+  </div>
+  <div class="prod-grid" id="prodGrid"></div>
+  <div class="load-more-row" id="loadMoreRow" style="display:none;">
+    <button class="btn btn-ghost" id="loadMoreBtn" onclick="showMore()">Показати ще</button>
+  </div>
+</section>
+
+<section class="block" id="why">
+  <div class="section-head">
+    <div>
+      <span class="tag-mono eyebrow" style="margin-bottom:10px; display:inline-flex;">Чому ми</span>
+      <h2>Заряджаємо з турботою</h2>
+    </div>
+  </div>
+  <div class="feat-grid">
+    <div class="feat-card"><div class="num">01</div><h3>Перевірена якість</h3><p>Тестуємо кожен аксесуар на сумісність і безпечне заряджання, тож ви отримуєте лише перевірений товар.</p></div>
+    <div class="feat-card"><div class="num">02</div><h3>Швидка доставка</h3><p>Відправляємо в день замовлення Новою Поштою.</p></div>
+    <div class="feat-card"><div class="num">03</div><h3>Підтримка 24/7</h3><p>Допоможемо обрати аксесуар під модель телефону — просто напишіть нам.</p></div>
+  </div>
+</section>
+
+<section class="block" id="reviews">
+  <div class="section-head">
+    <div><h2>Що кажуть покупці</h2></div>
+    <button class="btn btn-ghost" onclick="openReview()">Залишити відгук</button>
+  </div>
+  <div class="review-row">
+    <div class="review"><div class="stars">★★★★★</div><p>Замовляла чохол і скло — прийшло швидко, все підійшло ідеально під модель.</p><div class="who">Олена, Київ</div></div>
+    <div class="review"><div class="stars">★★★★★</div><p>Зарядка тримає заявлену потужність, телефон заряджається справді швидко.</p><div class="who">Максим, Львів</div></div>
+    <div class="review"><div class="stars">★★★★☆</div><p>Гарна якість матеріалів, приємно тримати в руках. Буду замовляти ще.</p><div class="who">Ірина, Одеса</div></div>
+  </div>
+</section>
+
+<section class="block" id="contacts">
+  <div class="final-cta">
+    <h2>Готові оновити свій набір аксесуарів?</h2>
+    <p>Оформіть замовлення прямо зараз — ми зв'яжемось для підтвердження та оплати.</p>
+    <p style="margin-top:8px;">Телефонуйте нам: <a href="tel:+380739435741" class="accent">+380 73 943 57 41</a></p>
+    <div class="cta-row" style="justify-content:center;">
+      <button class="btn btn-primary" onclick="openCart()">Оформити замовлення</button>
+      <a href="tel:+380739435741"><button class="btn btn-ghost">Зателефонувати</button></a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="logo"><img src="logo.jpg" alt="SMART STORE логотип">SMART STORE</div>
+  <div class="cols">
+    <div>
+      <h4>Каталог</h4>
+      <a href="category/chokhly-iphone.html">Чохли iPhone</a>
+      <a href="category/kabeli.html">Кабелі й зарядки</a>
+      <a href="category/navushnyky.html">Навушники</a>
+      <a href="#categories">Усі категорії</a>
+    </div>
+    <div>
+      <h4>Компанія</h4>
+      <a href="#why">Про нас</a>
+      <a href="#contacts">Контакти</a>
+      <a href="javascript:void(0)" onclick="openInfo()">Доставка й оплата</a>
+    </div>
+    <div>
+      <h4>Контакти</h4>
+      <a href="tel:+380739435741">+380 73 943 57 41</a>
+      <a href="mailto:taraskabala4@gmail.com">taraskabala4@gmail.com</a>
+      <a href="javascript:void(0)">Telegram / Instagram</a>
+    </div>
+  </div>
+</footer>
+
+<div class="overlay" id="cartOverlay">
+  <div class="drawer">
+    <!-- CART VIEW -->
+    <div id="cartView" style="display:flex; flex-direction:column; gap:16px; height:100%;">
+      <h3>Кошик <span class="x" onclick="closeCart()">✕</span></h3>
+      <div class="drawer-scroll" id="cartItems"></div>
+      <div class="cart-total"><span>Разом</span><span id="cartTotal">0 ₴</span></div>
+      <button class="btn btn-primary" id="toCheckoutBtn" style="width:100%; justify-content:center;" onclick="goCheckout()">Оформити замовлення</button>
+      <div class="note">Оформлюючи замовлення, ви залишаєте заявку — ми зв'яжемось для підтвердження, деталей доставки та оплати.</div>
+    </div>
+
+    <!-- CHECKOUT VIEW -->
+    <div id="checkoutView" style="display:none; flex-direction:column; gap:14px; height:100%;">
+      <h3><span class="back-link" onclick="backToCart()">← Кошик</span><span class="x" onclick="closeCart()">✕</span></h3>
+      <form id="orderForm" class="drawer-scroll" style="gap:0;" method="POST" name="order" data-netlify="true" netlify-honeypot="bot-field">
+        <input type="hidden" name="form-name" value="order">
+        <p class="hp"><label>Не заповнюйте: <input name="bot-field"></label></p>
+        <div class="field"><label>Ім'я та прізвище *</label><input name="name" required placeholder="Напр. Олена Коваленко"></div>
+        <div class="field"><label>Телефон *</label><input name="phone" type="tel" required placeholder="+380 00 000 00 00"></div>
+        <div class="field field-relative">
+          <label>Місто *</label>
+          <input name="city" id="cityInput" required placeholder="Почніть вводити назву міста" autocomplete="off"
+                 oninput="onCityInput()" onfocus="onCityInput()">
+          <div class="city-suggest" id="citySuggest"></div>
+        </div>
+        <div class="field"><label>Спосіб доставки</label>
+          <select name="delivery" id="deliverySelect" onchange="onDeliveryChange()">
+            <option>Нова Пошта — відділення</option>
+            <option>Нова Пошта — поштомат</option>
+            <option>Кур'єр по місту</option>
+            <option>Самовивіз</option>
+          </select>
+        </div>
+        <div class="field" id="branchField">
+          <label id="branchLabel">Відділення</label>
+          <select name="branch" id="branchSelect" style="display:none;" disabled></select>
+          <input name="branch" id="branchInput" placeholder="Спочатку вкажіть місто">
+          <div class="np-hint" id="npHint"></div>
+        </div>
+        <div class="field"><label>Оплата</label>
+          <select name="payment">
+            <option>Накладений платіж</option>
+            <option>Передоплата на картку</option>
+            <option>Оплата при отриманні</option>
+          </select>
+        </div>
+        <div class="field"><label>Коментар до замовлення</label><textarea name="comment" placeholder="Побажання, модель телефону тощо"></textarea></div>
+        <input type="hidden" name="order" id="orderField">
+        <input type="hidden" name="total" id="totalField">
+        <div class="order-summary" id="orderSummary"></div>
+        <button type="submit" class="btn btn-primary" id="submitOrderBtn" style="width:100%; justify-content:center; margin-top:14px;">Підтвердити замовлення</button>
+        <div class="note" style="margin-top:10px;">Натискаючи кнопку, ви погоджуєтесь, що менеджер зв'яжеться з вами для підтвердження.</div>
+      </form>
+    </div>
+
+    <!-- SUCCESS VIEW -->
+    <div id="successView" style="display:none; flex-direction:column; height:100%;">
+      <h3>Готово <span class="x" onclick="closeCart()">✕</span></h3>
+      <div class="success-box">
+        <div class="check">✓</div>
+        <h3 style="justify-content:center;">Замовлення прийнято!</h3>
+        <p class="note" style="max-width:280px;">Дякуємо за замовлення. Наш менеджер зв'яжеться з вами найближчим часом для підтвердження та деталей доставки.</p>
+        <button class="btn btn-ghost" onclick="closeCart()">Продовжити покупки</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="productOverlay">
+  <div class="product-drawer">
+    <h3>Про товар <span class="x" onclick="closeProduct()">✕</span></h3>
+    <div class="product-body" id="productBody"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="overlay" id="infoOverlay">
+  <div class="info-drawer">
+    <h3>Доставка й оплата <span class="x" onclick="closeInfo()">✕</span></h3>
+    <div class="info-body">
+      <h4>Доставка</h4>
+      <p>Ми здійснюємо доставку замовлень по всій території України службою доставки Нова Пошта.</p>
+      <p>Після оформлення та підтвердження замовлення відправка здійснюється у найкоротші терміни. Після відправлення ви отримаєте номер експрес-накладної (ТТН) для відстеження посилки.</p>
+      <p>Термін доставки залежить від роботи перевізника та зазвичай становить <b>1–3 робочі дні</b>.</p>
+
+      <h4>Оплата</h4>
+      <p>Ви можете обрати один із двох способів оплати:</p>
+      <ul>
+        <li><b>Повна передоплата</b> — оплата замовлення перед відправленням.</li>
+        <li><b>Післяплата</b> — оплата при отриманні посилки у відділенні або поштоматі Нової Пошти.</li>
+      </ul>
+      <p>У разі вибору післяплати покупець додатково оплачує комісію Нової Пошти за переказ коштів відповідно до чинних тарифів перевізника.</p>
+
+      <div class="info-note">Якщо у вас виникли запитання щодо доставки чи оплати, зв'яжіться з нами будь-яким зручним способом — ми із задоволенням допоможемо.</div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="reviewOverlay">
+  <div class="info-drawer">
+    <!-- REVIEW FORM VIEW -->
+    <div id="reviewFormView" style="display:flex; flex-direction:column; height:100%;">
+      <h3>Залишити відгук <span class="x" onclick="closeReview()">✕</span></h3>
+      <form id="reviewForm" class="drawer-scroll" style="gap:14px;" method="POST" name="review" data-netlify="true" netlify-honeypot="bot-field-r">
+        <input type="hidden" name="form-name" value="review">
+        <p class="hp"><label>Не заповнюйте: <input name="bot-field-r"></label></p>
+
+        <div class="field">
+          <label>Ваша оцінка *</label>
+          <div class="star-picker" id="starPicker">
+            <span data-v="1" onclick="setRating(1)">★</span><span data-v="2" onclick="setRating(2)">★</span><span data-v="3" onclick="setRating(3)">★</span><span data-v="4" onclick="setRating(4)">★</span><span data-v="5" onclick="setRating(5)">★</span>
+          </div>
+          <input type="hidden" name="rating" id="ratingField" required>
+        </div>
+
+        <div class="field"><label>Ім'я *</label><input name="name" required placeholder="Напр. Олена"></div>
+        <div class="field"><label>Місто</label><input name="city" placeholder="Напр. Київ"></div>
+        <div class="field"><label>Який товар придбали?</label><input name="product" placeholder="Напр. Чохол Blueo для iPhone 15"></div>
+        <div class="field"><label>Ваш відгук *</label><textarea name="text" required placeholder="Розкажіть, що сподобалось або що можна покращити" style="min-height:100px;"></textarea></div>
+
+        <button type="submit" class="btn btn-primary" id="submitReviewBtn" style="width:100%; justify-content:center;">Надіслати відгук</button>
+        <div class="note">Дякуємо за чесний відгук! Після перевірки командою магазину він з'явиться на сайті.</div>
+      </form>
+    </div>
+
+    <!-- REVIEW SUCCESS VIEW -->
+    <div id="reviewSuccessView" style="display:none; flex-direction:column; height:100%;">
+      <h3>Дякуємо <span class="x" onclick="closeReview()">✕</span></h3>
+      <div class="success-box">
+        <div class="check">✓</div>
+        <h3 style="justify-content:center;">Відгук надіслано!</h3>
+        <p class="note" style="max-width:280px;">Дякуємо, що поділились враженнями. Ми модеруємо відгуки вручну — ваш з'явиться на сайті найближчим часом.</p>
+        <button class="btn btn-ghost" onclick="closeReview()">Закрити</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const CAT_ICONS = {
+    "Чохли iPhone":"📱","Чохли iPad":"📲","Чохли AirPods":"🎧","Ремінці Apple Watch":"⌚",
+    "Захисне скло":"🛡️","Кабелі":"🔌","Адаптери":"⚡","Павербанки":"🔋",
+    "Навушники":"🎧","Бездротова зарядка":"🔋","Автоаксесуари":"🚗","Інше":"📦"
+  };
+  const PAGE = 24;
+  let products = [];
+  let activeCat = "Всі";
+  let activeModel = "Всі";
+  let activeColor = "Всі";
+  let visible = PAGE;
+  let cart = {};
+
+  // ---------- model / color extraction (parsed from product names) ----------
+  const COLOR_MAP = [
+    [/\bчорн(ий|а|е)\b|\bblack\b/i,'Чорний'],
+    [/\bбіл(ий|а)\b|\bwhite\b/i,'Білий'],
+    [/\bdeep blue\b/i,'Темно-синій'],
+    [/\bnavy\b/i,'Темно-синій'],
+    [/\bсин(ій|я)\b|\bblue\b/i,'Синій'],
+    [/\bзелен(ий|а)\b|\bgreen\b/i,'Зелений'],
+    [/\bчервон(ий|а)\b|\bred\b/i,'Червоний'],
+    [/\bрожев(ий|а)\b|\bрозов(ий|а)\b|\bpink sand\b|\bpink\b/i,'Рожевий'],
+    [/\bфіолетов(ий|а)\b|\bpurple\b/i,'Фіолетовий'],
+    [/\bоранжев(ий|а)\b|\borange\b/i,'Помаранчевий'],
+    [/\bсір(ий|а)\b|\bgrey\b|\bgray\b/i,'Сірий'],
+    [/\bсріб(ний|на|ло)\b|\bsilver\b/i,'Срібний'],
+    [/\bзолот(ий|а|о)\b|\bgold\b/i,'Золотий'],
+    [/\bбежев(ий|а)\b|\bbeige\b/i,'Бежевий'],
+    [/\bжовт(ий|а)\b|\byellow\b/i,'Жовтий'],
+    [/\bкорич\w*\b|\bbrown\b|\bcoffee\b/i,'Коричневий'],
+    [/\bпрозор\w*\b|\bclear\b|\btransparent\b|\bcrystal\b/i,'Прозорий'],
+    [/\bграфіт\w*\b|\bgraphite\b/i,'Графітовий'],
+    [/\bstarlight\b/i,'Starlight'],
+    [/\bблакитн(ий|а)\b/i,'Блакитний'],
+    [/\btitanium\b|\bтитан\w*\b/i,'Титановий'],
+  ];
+  function extractColor(p){
+    for(const [re,label] of COLOR_MAP){ if(re.test(p.name)) return label; }
+    return null;
+  }
+  function splitSeg(prefix, raw, unit){
+    unit = unit || '';
+    return raw.split('/').map(s=>s.trim()).filter(Boolean)
+      .map(s => (prefix + ' ' + s + unit).replace(/\s+/g,' ').trim());
+  }
+  function extractModels(p){
+    const name = p.name;
+    const out = new Set();
+    let m = name.match(/iPhone\s+((?:\d+(?!D)|\/|\s+|Pro\s*Max|Pro|Plus|mini)+)/i);
+    if(m) splitSeg('iPhone', m[1]).forEach(x=>out.add(x));
+    m = name.match(/Apple Watch\s+([0-9\/]+)\s*mm/i);
+    if(m) splitSeg('Apple Watch', m[1], 'mm').forEach(x=>out.add(x));
+    m = name.match(/AirPods\s+((?:Pro\s+)?[0-9\/]+)/i);
+    if(m){
+      const raw = m[1];
+      const proMatch = raw.match(/^Pro\s+(.+)$/i);
+      if(proMatch) splitSeg('AirPods Pro', proMatch[1]).forEach(x=>out.add(x));
+      else splitSeg('AirPods', raw).forEach(x=>out.add(x));
+    }
+    m = name.match(/iPad[^]*?(?=\s+(?:Toby|Domo|Magi|Peca)\s+Series)/i);
+    if(m){
+      const norm = m[0].trim().replace(/["\u201c\u201d]/g,'').replace(/\s*\/\s*/g,'/').replace(/\s+/g,' ');
+      out.add(norm);
+    }
+    return [...out];
+  }
+
+  // ---------- load cart from storage ----------
+  try { cart = JSON.parse(localStorage.getItem('smartstore_cart') || '{}'); } catch(e){ cart = {}; }
+  function saveCart(){ try{ localStorage.setItem('smartstore_cart', JSON.stringify(cart)); }catch(e){} }
+
+  const fmt = n => n.toLocaleString('uk-UA') + ' ₴';
+  const esc = s => (s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+  // ---------- slug helper (must match Python build script mapping) ----------
+  const UA_MAP = {а:'a',б:'b',в:'v',г:'h',ґ:'g',д:'d',е:'e',є:'ie',ж:'zh',з:'z',и:'y',і:'i',ї:'i',й:'i',к:'k',л:'l',м:'m',н:'n',о:'o',п:'p',р:'r',с:'s',т:'t',у:'u',ф:'f',х:'kh',ц:'ts',ч:'ch',ш:'sh',щ:'shch',ь:'',ю:'iu',я:'ia'};
+  function slugify(str){
+    return (str||'').toLowerCase().split('').map(ch => UA_MAP[ch] !== undefined ? UA_MAP[ch] : ch).join('')
+      .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').replace(/-{2,}/g,'-').slice(0,80);
+  }
+
+  // ---------- deep-link: ?add=ID adds to cart, #cart opens cart drawer ----------
+  function handleDeepLink(){
+    const params = new URLSearchParams(location.search);
+    const addId = parseInt(params.get('add'));
+    if(addId && products.find(p => p.id === addId)){
+      addToCart(addId);
+      showToast('Товар додано в кошик');
+    }
+    if(location.hash === '#cart' || addId){ openCart(); }
+  }
+
+  // ---------- init ----------
+  fetch('products.json')
+    .then(r => r.json())
+    .then(data => {
+      products = data;
+      products.forEach(p => { p._models = extractModels(p); p._color = extractColor(p); });
+      document.getElementById('trustCount').textContent = products.length + '+';
+      buildCategories();
+      buildFilters();
+      buildFacets();
+      render();
+      renderCart();
+      handleDeepLink();
+    })
+    .catch(() => {
+      document.getElementById('prodGrid').innerHTML = '<div class="empty-note">Не вдалося завантажити каталог. Спробуйте оновити сторінку.</div>';
+    });
+
+  function catCounts(){
+    const m = {};
+    products.forEach(p => m[p.cat] = (m[p.cat]||0)+1);
+    return m;
+  }
+
+  function buildCategories(){
+    const counts = catCounts();
+    const grid = document.getElementById('catGrid');
+    grid.innerHTML = Object.keys(counts).map(cat => `
+      <a class="cat-card" href="category/${slugify(cat)}.html">
+        <div class="ic">${CAT_ICONS[cat] || '📦'}</div>
+        <div class="n">${esc(cat)}</div>
+        <div class="c">${counts[cat]} товарів</div>
+      </a>`).join('');
+  }
+
+  function buildFilters(){
+    const counts = catCounts();
+    const cats = ['Всі', ...Object.keys(counts)];
+    const bar = document.getElementById('filterBar');
+    bar.innerHTML = cats.map(c => {
+      const n = c === 'Всі' ? products.length : counts[c];
+      return `<button class="chip ${c===activeCat?'active':''}" data-cat="${esc(c)}" onclick="setCat('${c.replace(/'/g,"\\'")}')">${esc(c)} <span class="qty">${n}</span></button>`;
+    }).join('');
+  }
+
+  function setCat(cat){
+    activeCat = cat;
+    visible = PAGE;
+    document.querySelectorAll('.chip').forEach(ch => ch.classList.toggle('active', ch.dataset.cat === cat));
+    render();
+  }
+  function filterAndScroll(cat){
+    setCat(cat);
+    document.getElementById('products').scrollIntoView({behavior:'smooth'});
+  }
+
+  function setModel(v){ activeModel = v; visible = PAGE; render(); }
+  function setColor(v){ activeColor = v; visible = PAGE; render(); }
+
+  function buildFacets(){
+    const modelSel = document.getElementById('modelFilter');
+    const colorSel = document.getElementById('colorFilter');
+    const models = new Set();
+    const colors = new Set();
+    products.forEach(p => { p._models.forEach(m => models.add(m)); if(p._color) colors.add(p._color); });
+    const sortedModels = [...models].sort((a,b) => a.localeCompare(b, 'uk'));
+    const sortedColors = [...colors].sort((a,b) => a.localeCompare(b, 'uk'));
+    modelSel.innerHTML = '<option value="Всі">Модель: всі</option>' +
+      sortedModels.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('');
+    colorSel.innerHTML = '<option value="Всі">Колір: всі</option>' +
+      sortedColors.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  }
+
+  function filtered(){
+    return products.filter(p => {
+      if(activeCat !== 'Всі' && p.cat !== activeCat) return false;
+      if(activeModel !== 'Всі' && !p._models.includes(activeModel)) return false;
+      if(activeColor !== 'Всі' && p._color !== activeColor) return false;
+      return true;
+    });
+  }
+
+  function render(){
+    const list = filtered();
+    const grid = document.getElementById('prodGrid');
+    if(list.length === 0){ grid.innerHTML = '<div class="empty-note">У цій категорії поки немає товарів.</div>'; }
+    else {
+      grid.innerHTML = list.slice(0, visible).map(p => {
+        const inStock = p.available;
+        return `
+        <a class="prod-card" href="product/${p.id}-${slugify(p.name)}.html">
+          <div class="prod-media">
+            <span class="prod-badge ${inStock?'':'out'}">${inStock?'В наявності':'Немає в наявності'}</span>
+            <img src="${esc(p.img)}" alt="${esc(p.name)}" loading="lazy"
+                 onerror="this.style.display='none'; this.parentNode.insertAdjacentHTML('beforeend','<div style=&quot;font-size:40px&quot;>${CAT_ICONS[p.cat]||'📦'}</div>')">
+          </div>
+          <div class="prod-body">
+            <div class="prod-cat">${esc(p.cat)}</div>
+            <div class="prod-name">${esc(p.name)}</div>
+            <div class="prod-spec">${esc(p.spec || '')}</div>
+            <div class="prod-foot">
+              <div class="prod-price">${fmt(p.price)}</div>
+              <button class="add-btn" onclick="event.preventDefault(); event.stopPropagation(); addToCart(${p.id})">Купити +</button>
+            </div>
+          </div>
+        </a>`;
+      }).join('');
+    }
+    const row = document.getElementById('loadMoreRow');
+    row.style.display = list.length > visible ? 'flex' : 'none';
+  }
+
+  function showMore(){ visible += PAGE; render(); }
+
+  // ---------- cart ----------
+  function addToCart(id){
+    cart[id] = (cart[id]||0) + 1;
+    saveCart();
+    renderCart();
+    showToast('Додано в кошик');
+  }
+  function changeQty(id, delta){
+    cart[id] = (cart[id]||0) + delta;
+    if(cart[id] <= 0) delete cart[id];
+    saveCart();
+    renderCart();
+  }
+  function removeItem(id){ delete cart[id]; saveCart(); renderCart(); }
+
+  function cartEntries(){
+    return Object.entries(cart).map(([id,q]) => ({ p: products.find(pr => pr.id == id), q }))
+      .filter(e => e.p);
+  }
+  function cartTotal(){ return cartEntries().reduce((s,e) => s + e.p.price * e.q, 0); }
+  function cartCount(){ return Object.values(cart).reduce((s,q) => s + q, 0); }
+
+  function renderCart(){
+    document.getElementById('cartCount').textContent = cartCount();
+    const entries = cartEntries();
+    const box = document.getElementById('cartItems');
+    if(entries.length === 0){
+      box.innerHTML = '<div class="cart-empty">Кошик поки порожній</div>';
+    } else {
+      box.innerHTML = entries.map(({p,q}) => `
+        <div class="cart-item">
+          <div class="thumb"><img src="${esc(p.img)}" alt="" onerror="this.style.display='none'"></div>
+          <div class="info">
+            ${!p.available ? '<div class="stock-flag">Немає в наявності</div>' : ''}
+            <div class="nm">${esc(p.name)}</div>
+            <div class="pr">${fmt(p.price)} × ${q} = ${fmt(p.price*q)}</div>
+          </div>
+          <div class="qty-ctl">
+            <button onclick="changeQty(${p.id},-1)">−</button>
+            <span class="q">${q}</span>
+            <button onclick="changeQty(${p.id},1)">+</button>
+          </div>
+        </div>`).join('');
+    }
+    document.getElementById('cartTotal').textContent = fmt(cartTotal());
+    document.getElementById('toCheckoutBtn').disabled = entries.length === 0;
+  }
+
+  function toggleMobileNav(){
+    const m = document.getElementById('mobileNav');
+    if(m) m.classList.toggle('open');
+  }
+  document.addEventListener('click', (e) => {
+    const m = document.getElementById('mobileNav');
+    if(m && m.classList.contains('open') && e.target.id === 'mobileNav') m.classList.remove('open');
+  });
+
+  function openCart(){ document.getElementById('cartOverlay').classList.add('open'); showView('cart'); renderCart(); }
+  function closeCart(){ document.getElementById('cartOverlay').classList.remove('open'); }
+  function showView(v){
+    document.getElementById('cartView').style.display = v==='cart' ? 'flex' : 'none';
+    document.getElementById('checkoutView').style.display = v==='checkout' ? 'flex' : 'none';
+    document.getElementById('successView').style.display = v==='success' ? 'flex' : 'none';
+  }
+  function backToCart(){ showView('cart'); }
+
+  function goCheckout(){
+    const entries = cartEntries();
+    if(entries.length === 0){ showToast('Додайте товари в кошик'); return; }
+    const lines = entries.map(({p,q}) => `${p.name}${p.available ? '' : ' (немає в наявності)'} — ${q} шт × ${fmt(p.price)} = ${fmt(p.price*q)}`);
+    document.getElementById('orderField').value = lines.join('\n');
+    document.getElementById('totalField').value = fmt(cartTotal());
+    document.getElementById('orderSummary').innerHTML =
+      entries.map(({p,q}) => `<div class="row"><span>${esc(p.name)}${p.available ? '' : ' <span style="color:#ff8f8f;">(немає в наявності)</span>'} × ${q}</span><span>${fmt(p.price*q)}</span></div>`).join('') +
+      `<div class="row total"><span>Разом</span><span>${fmt(cartTotal())}</span></div>`;
+    showView('checkout');
+    loadBranchesForCurrentSelection();
+  }
+
+  // ---------- Nova Poshta integration (cities / branches / postomats) ----------
+  // Щоб увімкнути автопідбір міст і відділень Нової Пошти, вставте сюди свій
+  // безкоштовний API-ключ (Особистий кабінет НП → Налаштування → API).
+  // Поки ключ порожній — поля працюють як звичайні текстові поля вручну.
+  const NP_API_KEY = '';
+
+  let selectedCityRef = null;
+  let citySuggestTimer = null;
+
+  function npEnabled(){ return !!NP_API_KEY; }
+
+  async function npCall(modelName, calledMethod, methodProperties){
+    const res = await fetch('https://api.novaposhta.ua/v2.0/json/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ apiKey: NP_API_KEY, modelName, calledMethod, methodProperties: methodProperties || {} })
+    });
+    const data = await res.json();
+    if(!data.success) throw new Error((data.errors && data.errors[0]) || 'NP API error');
+    return data.data;
+  }
+
+  function onCityInput(){
+    selectedCityRef = null;
+    if(!npEnabled()) return; // manual mode: plain text input, no lookup
+    const val = document.getElementById('cityInput').value.trim();
+    clearTimeout(citySuggestTimer);
+    if(val.length < 2){ closeCitySuggest(); return; }
+    citySuggestTimer = setTimeout(() => searchCities(val), 300);
+  }
+
+  async function searchCities(q){
+    try{
+      const list = await npCall('AddressGeneral', 'getCities', { FindByString: q, Limit: '12' });
+      renderCitySuggest(list);
+    }catch(e){ closeCitySuggest(); }
+  }
+
+  function renderCitySuggest(list){
+    const box = document.getElementById('citySuggest');
+    if(!list || list.length === 0){
+      box.innerHTML = '<div class="opt empty">Місто не знайдено</div>';
+    } else {
+      box.innerHTML = list.map(c => {
+        const area = c.AreaDescription ? ', ' + esc(c.AreaDescription) + ' обл.' : '';
+        return `<div class="opt" onclick="selectCity('${c.Ref}', this.dataset.name)" data-name="${esc(c.Description)}">${esc(c.Description)}${area}</div>`;
+      }).join('');
+    }
+    box.classList.add('open');
+  }
+
+  function closeCitySuggest(){ document.getElementById('citySuggest').classList.remove('open'); }
+
+  function selectCity(ref, name){
+    selectedCityRef = ref;
+    document.getElementById('cityInput').value = name;
+    closeCitySuggest();
+    loadBranchesForCurrentSelection();
+  }
+
+  document.addEventListener('click', (e) => {
+    if(!e.target.closest('.field-relative')) closeCitySuggest();
+  });
+
+  function onDeliveryChange(){ loadBranchesForCurrentSelection(); }
+
+  function loadBranchesForCurrentSelection(){
+    const delivery = document.getElementById('deliverySelect').value;
+    const label = document.getElementById('branchLabel');
+    const sel = document.getElementById('branchSelect');
+    const txt = document.getElementById('branchInput');
+    const hint = document.getElementById('npHint');
+    const isNP = delivery.indexOf('Нова Пошта') === 0;
+
+    if(!isNP){
+      label.textContent = delivery === 'Самовивіз' ? 'Коментар (необов’язково)' : 'Адреса доставки';
+      sel.style.display = 'none'; sel.disabled = true; sel.innerHTML = '';
+      txt.style.display = 'block'; txt.disabled = false;
+      txt.placeholder = delivery === 'Самовивіз' ? 'Напр. зручний час самовивозу' : 'Напр. вул. Шевченка, 10';
+      hint.textContent = '';
+      return;
+    }
+
+    const wantPostomat = delivery.indexOf('поштомат') !== -1;
+    label.textContent = wantPostomat ? 'Поштомат' : 'Відділення';
+
+    if(!npEnabled() || !selectedCityRef){
+      sel.style.display = 'none'; sel.disabled = true; sel.innerHTML = '';
+      txt.style.display = 'block'; txt.disabled = false;
+      txt.placeholder = !npEnabled()
+        ? (wantPostomat ? 'Напр. Поштомат №1234' : 'Напр. Відділення №12')
+        : 'Спочатку оберіть місто зі списку';
+      hint.textContent = '';
+      return;
+    }
+
+    hint.textContent = 'Завантажуємо список…';
+    npCall('AddressGeneral', 'getWarehouses', { CityRef: selectedCityRef, Limit: '500', Language: 'UA' })
+      .then(list => {
+        const items = list.filter(w => wantPostomat ? w.CategoryOfWarehouse === 'Postomat' : w.CategoryOfWarehouse !== 'Postomat');
+        if(items.length === 0){
+          sel.style.display = 'none'; sel.disabled = true;
+          txt.style.display = 'block'; txt.disabled = false; txt.placeholder = 'Не знайдено, вкажіть вручну';
+          hint.textContent = wantPostomat ? 'У цьому місті немає поштоматів' : 'Відділення не знайдено';
+          return;
+        }
+        items.sort((a,b) => (parseInt(a.Number)||0) - (parseInt(b.Number)||0));
+        sel.innerHTML = items.map(w => `<option value="${esc(w.Description)}">${esc(w.Description)}</option>`).join('');
+        sel.style.display = 'block'; sel.disabled = false;
+        txt.style.display = 'none'; txt.disabled = true;
+        hint.textContent = items.length + (wantPostomat ? ' поштоматів знайдено' : ' відділень знайдено');
+      })
+      .catch(() => {
+        sel.style.display = 'none'; sel.disabled = true;
+        txt.style.display = 'block'; txt.disabled = false; txt.placeholder = 'Не вдалось завантажити, вкажіть вручну';
+        hint.textContent = '';
+      });
+  }
+
+  // ---------- order submit (Netlify Forms via AJAX) ----------
+  document.getElementById('orderForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const btn = document.getElementById('submitOrderBtn');
+    btn.disabled = true; btn.textContent = 'Надсилаємо…';
+    try{
+      const res = await fetch('/', {
+        method:'POST',
+        headers:{'Content-Type':'application/x-www-form-urlencoded'},
+        body: new URLSearchParams(new FormData(form)).toString()
+      });
+      if(!res.ok) throw new Error('bad status');
+      cart = {}; saveCart(); renderCart();
+      form.reset();
+      selectedCityRef = null;
+      loadBranchesForCurrentSelection();
+      showView('success');
+    }catch(err){
+      showToast('Помилка надсилання. Спробуйте ще раз.');
+      btn.disabled = false; btn.textContent = 'Підтвердити замовлення';
+    }
+  });
+
+  document.getElementById('cartOverlay').addEventListener('click', (e) => { if(e.target.id === 'cartOverlay') closeCart(); });
+
+  function openProduct(id){
+    const p = products.find(pr => pr.id === id);
+    if(!p) return;
+    const inStock = p.available;
+    const modelsRow = p._models && p._models.length
+      ? `<div>Модель: <b>${esc(p._models.join(', '))}</b></div>` : '';
+    const colorRow = p._color ? `<div>Колір: <b>${esc(p._color)}</b></div>` : '';
+    document.getElementById('productBody').innerHTML = `
+      <div class="product-media-lg">
+        <span class="prod-badge ${inStock?'':'out'}" style="position:absolute; top:12px; left:12px;">${inStock?'В наявності':'Немає в наявності'}</span>
+        <img src="${esc(p.img)}" alt="${esc(p.name)}"
+             onerror="this.style.display='none'; this.parentNode.insertAdjacentHTML('beforeend','<div style=&quot;font-size:56px&quot;>${CAT_ICONS[p.cat]||'📦'}</div>')">
+      </div>
+      <div class="prod-cat" style="margin-bottom:8px;">${esc(p.cat)}</div>
+      <div class="product-name-lg">${esc(p.name)}</div>
+      <div class="product-meta">
+        <div>Категорія: <b>${esc(p.cat)}</b></div>
+        ${modelsRow}
+        ${colorRow}
+      </div>
+      <div class="product-spec-lg">${esc(p.spec || 'Опис уточнюйте у менеджера.')}</div>
+      <div class="product-buy-row">
+        <div class="product-price-lg">${fmt(p.price)}</div>
+        <button class="btn btn-primary" onclick="addToCart(${p.id}); closeProduct();">Купити +</button>
+      </div>
+      ${!inStock ? '<div class="info-note">Цього товару зараз немає в наявності на складі. Ви можете додати його в кошик — менеджер уточнить термін надходження після оформлення замовлення.</div>' : ''}
+    `;
+    document.getElementById('productOverlay').classList.add('open');
+  }
+  function closeProduct(){ document.getElementById('productOverlay').classList.remove('open'); }
+  document.getElementById('productOverlay').addEventListener('click', (e) => { if(e.target.id === 'productOverlay') closeProduct(); });
+
+  function openInfo(){ document.getElementById('infoOverlay').classList.add('open'); }
+  function closeInfo(){ document.getElementById('infoOverlay').classList.remove('open'); }
+  document.getElementById('infoOverlay').addEventListener('click', (e) => { if(e.target.id === 'infoOverlay') closeInfo(); });
+
+  // ---------- review form ----------
+  function setRating(v){
+    document.getElementById('ratingField').value = v;
+    document.querySelectorAll('#starPicker span').forEach(s => {
+      s.classList.toggle('filled', parseInt(s.dataset.v) <= v);
+    });
+  }
+
+  function resetStars(){
+    document.getElementById('ratingField').value = '';
+    document.querySelectorAll('#starPicker span').forEach(s => s.classList.remove('filled'));
+  }
+
+  function openReview(){
+    document.getElementById('reviewOverlay').classList.add('open');
+    document.getElementById('reviewFormView').style.display = 'flex';
+    document.getElementById('reviewSuccessView').style.display = 'none';
+    resetStars();
+  }
+  function closeReview(){ document.getElementById('reviewOverlay').classList.remove('open'); }
+  document.getElementById('reviewOverlay').addEventListener('click', (e) => { if(e.target.id === 'reviewOverlay') closeReview(); });
+
+  document.getElementById('reviewForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    if(!document.getElementById('ratingField').value){ showToast('Оберіть оцінку зірками'); return; }
+    const btn = document.getElementById('submitReviewBtn');
+    btn.disabled = true; btn.textContent = 'Надсилаємо…';
+    try{
+      const res = await fetch('/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(new FormData(form)).toString()
+      });
+      if(!res.ok) throw new Error('bad status');
+      form.reset();
+      resetStars();
+      document.getElementById('reviewFormView').style.display = 'none';
+      document.getElementById('reviewSuccessView').style.display = 'flex';
+    }catch(err){
+      showToast('Помилка надсилання. Спробуйте ще раз.');
+    }finally{
+      btn.disabled = false; btn.textContent = 'Надіслати відгук';
+    }
+  });
+
+  // ---------- toast ----------
+  let toastTimer;
+  function showToast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+  }
+
+  // ---------- battery scroll indicator ----------
+  window.addEventListener('scroll', () => {
+    const h = document.documentElement;
+    const pct = Math.min(100, Math.round((h.scrollTop) / (h.scrollHeight - h.clientHeight) * 100)) || 0;
+    document.getElementById('batteryFill').style.width = pct + '%';
+    document.getElementById('battPct').textContent = pct + '%';
+    document.getElementById('battIcon').style.setProperty('--charge', pct + '%');
+    const circle = document.getElementById('orbCircle');
+    const offset = 942 - (942 * pct / 100);
+    circle.style.strokeDashoffset = offset;
+    document.getElementById('orbPct').innerHTML = pct + '<span>%</span>';
+  });
+</script>
+</body>
+</html>
