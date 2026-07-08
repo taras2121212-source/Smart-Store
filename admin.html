@@ -168,6 +168,7 @@
     <div class="toolbar">
       <input type="search" id="searchBox" placeholder="Пошук за назвою…" oninput="renderTable()">
       <select id="catFilter" onchange="renderTable()"><option value="Всі">Категорія: всі</option></select>
+      <select id="brandFilter" onchange="renderTable()"><option value="Всі">Бренд: всі</option></select>
       <select id="stockFilter" onchange="renderTable()">
         <option value="Всі">Наявність: всі</option>
         <option value="in">У наявності</option>
@@ -228,10 +229,17 @@
         <div class="field"><label>Ціна (грн) *</label><input id="fPrice" type="number" min="0" step="1" required placeholder="699"></div>
         <div class="field"><label>Стара ціна (для знижки, необов'язково)</label><input id="fOldPrice" type="number" min="0" step="1" placeholder="Напр. 899"></div>
       </div>
-      <div class="field"><label>Категорія *</label>
-        <input id="fCat" required list="catList" placeholder="Напр. Чохли iPhone">
-        <datalist id="catList"></datalist>
+      <div class="field-row">
+        <div class="field"><label>Категорія *</label>
+          <input id="fCat" required list="catList" placeholder="Напр. Чохли iPhone">
+          <datalist id="catList"></datalist>
+        </div>
+        <div class="field"><label>Бренд *</label>
+          <input id="fBrand" required list="brandList" placeholder="Напр. Acefast">
+          <datalist id="brandList"></datalist>
+        </div>
       </div>
+      <div class="hint" style="margin-top:-8px; margin-bottom:6px;">Бренд обов'язковий — за ним на сайті працює фільтр каталогу «Бренд». Якщо бренду ще немає в списку, просто впишіть новий — він одразу з'явиться у фільтрі на сайті після оновлення products.json.</div>
       <div class="hint" style="margin-top:-8px; margin-bottom:6px;">Якщо вказати стару ціну (більшу за поточну) — на сайті покажеться закреслена стара ціна і бейдж знижки «-XX%».</div>
       <div class="field"><label>Група / серія (необов'язково)</label><input id="fGroup" placeholder="Напр. Чехлы Blueo"></div>
       <div class="field">
@@ -320,6 +328,13 @@
     sel.innerHTML = '<option value="Всі">Категорія: всі</option>' + cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
     if(cats.includes(current)) sel.value = current;
     document.getElementById('catList').innerHTML = cats.map(c=>`<option value="${esc(c)}">`).join('');
+
+    const brands = [...new Set(products.map(p=>p.brand).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'uk'));
+    const brandSel = document.getElementById('brandFilter');
+    const currentBrand = brandSel.value;
+    brandSel.innerHTML = '<option value="Всі">Бренд: всі</option>' + brands.map(b=>`<option value="${esc(b)}">${esc(b)}</option>`).join('');
+    if(brands.includes(currentBrand)) brandSel.value = currentBrand;
+    document.getElementById('brandList').innerHTML = brands.map(b=>`<option value="${esc(b)}">`).join('');
   }
 
   function discountPct(p){
@@ -330,11 +345,13 @@
   function filteredProducts(){
     const q = document.getElementById('searchBox').value.trim().toLowerCase();
     const cat = document.getElementById('catFilter').value;
+    const brand = document.getElementById('brandFilter').value;
     const stock = document.getElementById('stockFilter').value;
     const sale = document.getElementById('saleFilter').value;
     return products.filter(p=>{
       if(q && !p.name.toLowerCase().includes(q)) return false;
       if(cat !== 'Всі' && p.cat !== cat) return false;
+      if(brand !== 'Всі' && p.brand !== brand) return false;
       if(stock === 'in' && !p.available) return false;
       if(stock === 'out' && p.available) return false;
       if(sale === 'sale' && discountPct(p) <= 0) return false;
@@ -363,7 +380,7 @@
             <div class="thumb"><img src="${esc(p.img)}" alt="" onerror="this.style.display='none'"></div>
             <div>
               <div class="nm">${esc(p.name)}</div>
-              <div class="cat">${esc(p.cat)}</div>
+              <div class="cat">${esc(p.cat)}${p.brand ? ' · ' + esc(p.brand) : ''}</div>
             </div>
           </div>
         </td>
@@ -415,6 +432,7 @@
       document.getElementById('fPrice').value = p.price;
       document.getElementById('fOldPrice').value = p.oldPrice || '';
       document.getElementById('fCat').value = p.cat;
+      document.getElementById('fBrand').value = p.brand || '';
       document.getElementById('fGroup').value = p.group || '';
       document.getElementById('fImg').value = p.img || '';
       document.getElementById('fSpec').value = p.spec || '';
@@ -425,6 +443,7 @@
     } else {
       document.getElementById('modalTitle').textContent = 'Додати товар';
       document.getElementById('fId').value = '';
+      document.getElementById('fBrand').value = '';
       document.getElementById('fImg').value = '';
       document.getElementById('fOldPrice').value = '';
       document.getElementById('idHint').textContent = 'ID буде присвоєно автоматично';
@@ -478,6 +497,7 @@
     const oldPriceRaw = parseFloat(document.getElementById('fOldPrice').value);
     const oldPrice = (oldPriceRaw && oldPriceRaw > price) ? oldPriceRaw : null;
     const cat = document.getElementById('fCat').value.trim();
+    const brand = document.getElementById('fBrand').value.trim();
     const group = document.getElementById('fGroup').value.trim();
     const img = document.getElementById('fImg').value.trim();
     const spec = document.getElementById('fSpec').value.trim();
@@ -486,13 +506,13 @@
     if(idVal){
       const p = products.find(pr=>pr.id===parseInt(idVal));
       if(p){
-        Object.assign(p, {name, price, cat, group, img, spec, available});
+        Object.assign(p, {name, price, cat, brand, group, img, spec, available});
         if(oldPrice){ p.oldPrice = oldPrice; } else { delete p.oldPrice; }
       }
       showToast('Товар оновлено');
     } else {
       const newId = products.length ? Math.max(...products.map(p=>p.id)) + 1 : 1;
-      const newP = { id:newId, name, price, cur:'UAH', cat, group, img, available, spec };
+      const newP = { id:newId, name, price, cur:'UAH', cat, brand, group, img, available, spec };
       if(oldPrice) newP.oldPrice = oldPrice;
       products.push(newP);
       showToast('Товар додано');

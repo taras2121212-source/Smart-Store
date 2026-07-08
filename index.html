@@ -94,12 +94,19 @@
   </div>
   <div class="filter-bar" id="filterBar"></div>
   <div class="facet-row" id="facetRow">
+    <select id="brandFilter" onchange="setBrand(this.value)">
+      <option value="Всі">Бренд: всі</option>
+    </select>
     <select id="modelFilter" onchange="setModel(this.value)">
       <option value="Всі">Модель: всі</option>
     </select>
     <select id="colorFilter" onchange="setColor(this.value)">
       <option value="Всі">Колір: всі</option>
     </select>
+    <label class="chip stock-toggle" for="stockOnly">
+      <input type="checkbox" id="stockOnly" onchange="setStockOnly(this.checked)">
+      Тільки в наявності
+    </label>
   </div>
   <div class="prod-grid" id="prodGrid"></div>
   <div class="load-more-row" id="loadMoreRow" style="display:none;">
@@ -321,6 +328,8 @@
   let activeCat = "Всі";
   let activeModel = "Всі";
   let activeColor = "Всі";
+  let activeBrand = "Всі";
+  let stockOnly = false;
   let visible = PAGE;
   let cart = {};
 
@@ -351,6 +360,13 @@
   function extractColor(p){
     for(const [re,label] of COLOR_MAP){ if(re.test(p.name)) return label; }
     return null;
+  }
+  // ---------- brand: use explicit p.brand (set in admin), falling back to guessing it from the name ----------
+  const KNOWN_BRANDS = ['Acefast','Blueo','Dux Ducis','WIWU','Remax','Benks','Ocean'];
+  function extractBrand(p){
+    if(p.brand && String(p.brand).trim()) return String(p.brand).trim();
+    for(const b of KNOWN_BRANDS){ if(new RegExp(b.replace(/\s+/g,'\\s+'),'i').test(p.name)) return b; }
+    return 'Інше';
   }
   function splitSeg(prefix, raw, unit){
     unit = unit || '';
@@ -424,7 +440,7 @@
     .then(r => r.json())
     .then(data => {
       products = data;
-      products.forEach(p => { p._models = extractModels(p); p._color = extractColor(p); });
+      products.forEach(p => { p._models = extractModels(p); p._color = extractColor(p); p._brand = extractBrand(p); });
       document.getElementById('trustCount').textContent = products.length + '+';
       buildCategories();
       buildFilters();
@@ -477,19 +493,26 @@
 
   function setModel(v){ activeModel = v; visible = PAGE; render(); }
   function setColor(v){ activeColor = v; visible = PAGE; render(); }
+  function setBrand(v){ activeBrand = v; visible = PAGE; render(); }
+  function setStockOnly(v){ stockOnly = v; visible = PAGE; render(); }
 
   function buildFacets(){
     const modelSel = document.getElementById('modelFilter');
     const colorSel = document.getElementById('colorFilter');
+    const brandSel = document.getElementById('brandFilter');
     const models = new Set();
     const colors = new Set();
-    products.forEach(p => { p._models.forEach(m => models.add(m)); if(p._color) colors.add(p._color); });
+    const brands = new Set();
+    products.forEach(p => { p._models.forEach(m => models.add(m)); if(p._color) colors.add(p._color); if(p._brand) brands.add(p._brand); });
     const sortedModels = [...models].sort((a,b) => a.localeCompare(b, 'uk'));
     const sortedColors = [...colors].sort((a,b) => a.localeCompare(b, 'uk'));
+    const sortedBrands = [...brands].sort((a,b) => a.localeCompare(b, 'uk'));
     modelSel.innerHTML = '<option value="Всі">Модель: всі</option>' +
       sortedModels.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('');
     colorSel.innerHTML = '<option value="Всі">Колір: всі</option>' +
       sortedColors.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+    brandSel.innerHTML = '<option value="Всі">Бренд: всі</option>' +
+      sortedBrands.map(b => `<option value="${esc(b)}">${esc(b)}</option>`).join('');
   }
 
   function filtered(){
@@ -497,6 +520,8 @@
       if(activeCat !== 'Всі' && p.cat !== activeCat) return false;
       if(activeModel !== 'Всі' && !p._models.includes(activeModel)) return false;
       if(activeColor !== 'Всі' && p._color !== activeColor) return false;
+      if(activeBrand !== 'Всі' && p._brand !== activeBrand) return false;
+      if(stockOnly && !p.available) return false;
       return true;
     });
   }
@@ -782,6 +807,7 @@
     const modelsRow = p._models && p._models.length
       ? `<div>Модель: <b>${esc(p._models.join(', '))}</b></div>` : '';
     const colorRow = p._color ? `<div>Колір: <b>${esc(p._color)}</b></div>` : '';
+    const brandRow = p._brand && p._brand !== 'Інше' ? `<div>Бренд: <b>${esc(p._brand)}</b></div>` : '';
     document.getElementById('productBody').innerHTML = `
       <div class="product-media-lg">
         <span class="prod-badge ${inStock?'':'out'}" style="position:absolute; top:12px; left:12px;">${inStock?'В наявності':'Немає в наявності'}</span>
@@ -793,6 +819,7 @@
       <div class="product-name-lg">${esc(p.name)}</div>
       <div class="product-meta">
         <div>Категорія: <b>${esc(p.cat)}</b></div>
+        ${brandRow}
         ${modelsRow}
         ${colorRow}
       </div>

@@ -203,6 +203,9 @@
     font-family:'Inter', sans-serif;
   }
   .facet-row select:focus{ outline:none; border-color:var(--teal); }
+  .stock-toggle{ cursor:pointer; user-select:none; }
+  .stock-toggle input{ accent-color:var(--teal); width:14px; height:14px; cursor:pointer; }
+  .stock-toggle:has(input:checked){ background:var(--text); color:var(--ink); border-color:var(--text); font-weight:600; }
 
   /* ---------- product grid ---------- */
   .prod-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:20px; }
