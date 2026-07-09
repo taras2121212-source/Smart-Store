@@ -833,6 +833,15 @@
     const [formsRes, orderRes] = await Promise.all([netlifyFormsPromise, adminOrderPromise]);
 
     if((formsRes && formsRes.ok) || (orderRes && orderRes.ok)){
+      const totalValue = cartTotal();
+      if(typeof gtag === 'function'){
+        gtag('event', 'conversion', {
+          'send_to': 'AW-18311779741/lRQcCO7H3s0cEJ2r3ptE',
+          'value': totalValue,
+          'currency': 'UAH',
+          'transaction_id': 'SS-' + Date.now()
+        });
+      }
       cart = {}; saveCart(); renderCart();
       form.reset();
       selectedCityRef = null;
