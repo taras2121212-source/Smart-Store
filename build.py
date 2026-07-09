@@ -90,6 +90,23 @@ def load_products():
     return data
 
 
+def load_categories():
+    """categories.json is the source of truth for which categories exist,
+    their display order and their icon (managed from the admin panel).
+    It's optional: if the file is missing, categories are simply derived
+    from whatever "cat" values are used in products.json (old behaviour)."""
+    try:
+        with open("categories.json", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, list):
+            return [c for c in data if c.get("name")]
+    except FileNotFoundError:
+        pass
+    except json.JSONDecodeError:
+        pass
+    return []
+
+
 def category_counts(products):
     counts = {}
     for p in products:
@@ -362,6 +379,18 @@ def category_slug_map(counts):
     return {cat: slugify(cat) for cat in counts}
 
 
+def build_category_order(categories, counts):
+    """Merge the explicit categories.json list (in its saved order) with any
+    category names that only appear on products (e.g. legacy data or a
+    category referenced by a product but not — yet — listed in
+    categories.json). Returns an ordered list of category names."""
+    order = [c["name"] for c in categories]
+    for cat in counts:
+        if cat not in order:
+            order.append(cat)
+    return order
+
+
 def render_product_page(p, products, cat_slugs):
     root = "../"
     related = [x for x in products if x["cat"] == p["cat"] and x["id"] != p["id"]][:4]
@@ -513,7 +542,7 @@ def render_category_page(cat, products_in_cat, all_counts, cat_slugs):
     meta_desc = f"{cat}: {n} товарів в наявності. Оригінальні аксесуари, доставка Новою Поштою по Україні 2-3 дні, гарантія 12 міс. Замовляйте в SMART STORE."
 
     cat_nav = "\n  ".join(
-        f'<a href="{root}category/{s}.html" class="{"active" if c == cat else ""}">{esc(c)} <span class="mono" style="opacity:.6">({all_counts[c]})</span></a>'
+        f'<a href="{root}category/{s}.html" class="{"active" if c == cat else ""}">{esc(c)} <span class="mono" style="opacity:.6">({all_counts.get(c, 0)})</span></a>'
         for c, s in cat_slugs.items()
     )
 
@@ -589,7 +618,7 @@ def render_category_page(cat, products_in_cat, all_counts, cat_slugs):
 
 <section class="block" style="padding-top:0;">
   {CATEGORY_FACET_HTML}
-  <div class="prod-grid" id="catProdGrid">{''.join(cards)}</div>
+  <div class="prod-grid" id="catProdGrid">{''.join(cards) if cards else '<div class="empty-note">Товарів у цій категорії поки немає. Зазирніть трохи пізніше.</div>'}</div>
   <div class="load-more-row" id="catLoadMoreRow" style="display:none;">
     <button class="btn btn-ghost" id="catLoadMoreBtn">Показати ще</button>
   </div>
@@ -609,8 +638,14 @@ def render_category_page(cat, products_in_cat, all_counts, cat_slugs):
 
 def main():
     products = load_products()
+    categories = load_categories()
+
+    if categories:
+        CAT_ICONS.update({c["name"]: (c.get("icon") or "📦") for c in categories})
+
     counts = category_counts(products)
-    cat_slugs = category_slug_map(counts)
+    cat_order = build_category_order(categories, counts)
+    cat_slugs = {cat: slugify(cat) for cat in cat_order}
 
     os.makedirs("product", exist_ok=True)
     os.makedirs("category", exist_ok=True)

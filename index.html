@@ -141,10 +141,8 @@
       <button class="btn btn-primary" onclick="openReview()">Залишити відгук</button>
     </div>
   </div>
-  <div class="review-row">
-    <div class="review"><div class="stars">★★★★★</div><p>Замовляла чохол і скло — прийшло швидко, все підійшло ідеально під модель.</p><div class="who">Олена, Київ</div></div>
-    <div class="review"><div class="stars">★★★★★</div><p>Зарядка тримає заявлену потужність, телефон заряджається справді швидко.</p><div class="who">Максим, Львів</div></div>
-    <div class="review"><div class="stars">★★★★☆</div><p>Гарна якість матеріалів, приємно тримати в руках. Буду замовляти ще.</p><div class="who">Ірина, Одеса</div></div>
+  <div class="review-row" id="homeReviewsGrid">
+    <div class="empty-note">Завантаження відгуків…</div>
   </div>
 </section>
 
@@ -324,11 +322,12 @@
 </div>
 
 <script>
-  const CAT_ICONS = {
+  let CAT_ICONS = {
     "Чохли iPhone":"📱","Чохли iPad":"📲","Чохли AirPods":"🎧","Ремінці Apple Watch":"⌚",
     "Захисне скло":"🛡️","Кабелі":"🔌","Адаптери":"⚡","Павербанки":"🔋",
     "Навушники":"🎧","Бездротова зарядка":"🔋","Автоаксесуари":"🚗","Інше":"📦"
   };
+  let CATEGORY_LIST = []; // populated from categories.json (admin-managed); falls back to product-derived list if absent
   const PAGE = 24;
   let products = [];
   let activeCat = "Всі";
@@ -443,11 +442,17 @@
   }
 
   // ---------- init ----------
-  fetch('products.json')
-    .then(r => r.json())
-    .then(data => {
+  Promise.all([
+    fetch('products.json').then(r => r.json()),
+    fetch('categories.json').then(r => r.ok ? r.json() : null).catch(() => null)
+  ])
+    .then(([data, cats]) => {
       products = data;
       products.forEach(p => { p._models = extractModels(p); p._color = extractColor(p); p._brand = extractBrand(p); });
+      if(Array.isArray(cats)){
+        CATEGORY_LIST = cats.filter(c => c && c.name);
+        CATEGORY_LIST.forEach(c => { CAT_ICONS[c.name] = c.icon || '📦'; });
+      }
       document.getElementById('trustCount').textContent = products.length + '+';
       buildCategories();
       buildFilters();
@@ -460,6 +465,23 @@
       document.getElementById('prodGrid').innerHTML = '<div class="empty-note">Не вдалося завантажити каталог. Спробуйте оновити сторінку.</div>';
     });
 
+  // ---------- homepage reviews teaser (top 3 published reviews from reviews.json) ----------
+  function starsHtml(n){
+    n = Math.max(0, Math.min(5, Math.round(n||0)));
+    return '★★★★★☆☆☆☆☆'.slice(5 - n, 10 - n);
+  }
+  fetch('reviews.json').then(r => r.json()).then(data => {
+    const list = (Array.isArray(data) ? data : []).filter(r => r.published).slice(0, 3);
+    const grid = document.getElementById('homeReviewsGrid');
+    if(!grid) return;
+    if(list.length === 0){ grid.innerHTML = '<div class="empty-note">Відгуків поки немає.</div>'; return; }
+    grid.innerHTML = list.map(r => `
+      <div class="review"><div class="stars">${starsHtml(r.rating)}</div><p>${esc(r.text)}</p><div class="who">${esc(r.name)}${r.city ? ', ' + esc(r.city) : ''}</div></div>`).join('');
+  }).catch(() => {
+    const grid = document.getElementById('homeReviewsGrid');
+    if(grid) grid.innerHTML = '<div class="empty-note">Не вдалося завантажити відгуки.</div>';
+  });
+
   function catCounts(){
     const m = {};
     products.forEach(p => m[p.cat] = (m[p.cat]||0)+1);
@@ -469,11 +491,12 @@
   function buildCategories(){
     const counts = catCounts();
     const grid = document.getElementById('catGrid');
-    grid.innerHTML = Object.keys(counts).map(cat => `
+    const names = CATEGORY_LIST.length ? CATEGORY_LIST.map(c => c.name) : Object.keys(counts);
+    grid.innerHTML = names.map(cat => `
       <a class="cat-card" href="category/${slugify(cat)}.html">
         <div class="ic">${CAT_ICONS[cat] || '📦'}</div>
         <div class="n">${esc(cat)}</div>
-        <div class="c">${counts[cat]} товарів</div>
+        <div class="c">${counts[cat]||0} товарів</div>
       </a>`).join('');
   }
 

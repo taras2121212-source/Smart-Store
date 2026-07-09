@@ -79,6 +79,17 @@
   .name-cell{ display:flex; align-items:center; gap:10px; max-width:340px; }
   .name-cell .nm{ font-weight:600; line-height:1.3; }
   .name-cell .cat{ font-size:11px; color:var(--teal); }
+  .cat-icon-cell{ font-size:20px; width:40px; text-align:center; }
+  .cat-name-cell{ font-weight:600; }
+  .cat-order-btns{ display:flex; flex-direction:column; gap:2px; }
+  .cat-order-btns button{ width:22px; height:16px; border-radius:4px; border:1px solid var(--line); background:var(--panel-alt); color:var(--muted); cursor:pointer; font-size:9px; line-height:1; display:flex; align-items:center; justify-content:center; }
+  .cat-order-btns button:hover{ color:var(--text); }
+  .cat-order-btns button:disabled{ opacity:.25; cursor:not-allowed; }
+  .icon-picker{ display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
+  .icon-picker button{ width:34px; height:34px; border-radius:8px; border:1px solid var(--line); background:var(--panel-alt); font-size:16px; cursor:pointer; }
+  .icon-picker button.sel{ border-color:var(--teal); background:rgba(34,211,176,0.12); }
+  .review-author .nm{ font-weight:600; line-height:1.3; }
+  .review-author .cat{ font-size:11px; color:var(--teal); }
   .price-cell{ font-family:'JetBrains Mono',monospace; color:var(--amber); white-space:nowrap; }
   .stock-pill{ display:inline-flex; align-items:center; gap:6px; padding:5px 11px; border-radius:20px; font-size:11.5px; font-weight:600; cursor:pointer; border:1px solid var(--line); background:var(--panel-alt); white-space:nowrap; }
   .stock-pill.in{ color:var(--green); }
@@ -151,6 +162,8 @@
 
   <div class="tabs">
     <button class="tab-btn active" id="tabProductsBtn" onclick="switchTab('products')">Товари</button>
+    <button class="tab-btn" id="tabCategoriesBtn" onclick="switchTab('categories')">Категорії</button>
+    <button class="tab-btn" id="tabReviewsBtn" onclick="switchTab('reviews')">Відгуки<span class="tab-badge" id="reviewsBadge" style="display:none;"></span></button>
     <button class="tab-btn" id="tabOrdersBtn" onclick="switchTab('orders')">Замовлення<span class="tab-badge" id="ordersBadge" style="display:none;"></span></button>
   </div>
 
@@ -188,6 +201,67 @@
         <tr><th>Товар</th><th>Ціна</th><th>Наявність</th><th></th></tr>
       </thead>
       <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <div id="categoriesPanel" style="display:none;">
+    <div class="notice" id="categoriesNotice">
+      Категорії зберігаються у файлі <b class="mono">categories.json</b> (окремо від товарів). Тут можна
+      додавати нові категорії, перейменовувати наявні (назва одразу зміниться в усіх товарах цієї категорії)
+      та видаляти непотрібні. Порядок у списку — це порядок, у якому категорії показуються на сайті.
+      Після змін натисніть «Зберегти categories.json» і замініть цим файлом старий на хостингу поруч із
+      <b class="mono">products.json</b>, потім запустіть <b class="mono">python3 build.py</b>.
+    </div>
+
+    <div class="toolbar">
+      <button class="btn btn-primary" onclick="openCategoryModal()">+ Додати категорію</button>
+      <span class="count-tag" id="categoriesCountTag"></span>
+      <button class="btn" onclick="document.getElementById('importCategoriesFile').click()">Завантажити JSON</button>
+      <input type="file" id="importCategoriesFile" accept="application/json" style="display:none" onchange="importCategoriesJson(this.files[0])">
+      <button class="btn" onclick="copyCategoriesJson()">Копіювати JSON</button>
+      <button class="btn btn-primary" onclick="downloadCategoriesJson()">Зберегти categories.json</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr><th></th><th></th><th>Категорія</th><th>Товарів</th><th></th></tr>
+      </thead>
+      <tbody id="categoriesTbody"></tbody>
+    </table>
+  </div>
+
+  <div id="reviewsPanel" style="display:none;">
+    <div class="notice" id="reviewsNotice">
+      Відгуки, які клієнти надсилають через форму на сайті, потрапляють у <b>Netlify Forms</b> (розділ «Форми» →
+      «review» у панелі Netlify) — не сюди напряму. Порядок модерації:
+      1) на сторінці форми в Netlify натисніть «Завантажити як CSV»;
+      2) тут натисніть «Імпорт CSV з Netlify» і оберіть цей файл — нові відгуки додадуться в статусі «На модерації»;
+      3) перевірте текст, за потреби відредагуйте чи видаліть спам, і натисніть «Опубліковано» на потрібних;
+      4) натисніть «Зберегти reviews.json» і замініть цим файлом старий на хостингу — опубліковані відгуки з'являться на сайті.
+      Відгук можна й просто додати вручну кнопкою «+ Додати відгук».
+    </div>
+
+    <div class="toolbar">
+      <button class="btn btn-primary" onclick="openReviewModal()">+ Додати відгук</button>
+      <select id="reviewStatusFilter" onchange="renderReviewsTable()">
+        <option value="Всі">Статус: всі</option>
+        <option value="published">Опубліковані</option>
+        <option value="pending">На модерації</option>
+      </select>
+      <span class="count-tag" id="reviewsCountTag"></span>
+      <button class="btn" onclick="document.getElementById('importReviewsCsv').click()">Імпорт CSV з Netlify</button>
+      <input type="file" id="importReviewsCsv" accept=".csv,text/csv" style="display:none" onchange="importReviewsCsv(this.files[0])">
+      <button class="btn" onclick="document.getElementById('importReviewsFile').click()">Завантажити JSON</button>
+      <input type="file" id="importReviewsFile" accept="application/json" style="display:none" onchange="importReviewsJson(this.files[0])">
+      <button class="btn" onclick="copyReviewsJson()">Копіювати JSON</button>
+      <button class="btn btn-primary" onclick="downloadReviewsJson()">Зберегти reviews.json</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr><th>Оцінка</th><th>Автор</th><th>Текст</th><th>Статус</th><th></th></tr>
+      </thead>
+      <tbody id="reviewsTbody"></tbody>
     </table>
   </div>
 
@@ -231,14 +305,14 @@
       </div>
       <div class="field-row">
         <div class="field"><label>Категорія *</label>
-          <input id="fCat" required list="catList" placeholder="Напр. Чохли iPhone">
-          <datalist id="catList"></datalist>
+          <select id="fCat" required></select>
         </div>
         <div class="field"><label>Бренд *</label>
           <input id="fBrand" required list="brandList" placeholder="Напр. Acefast">
           <datalist id="brandList"></datalist>
         </div>
       </div>
+      <div class="hint" style="margin-top:-8px; margin-bottom:6px;">Немає потрібної категорії у списку? Додайте її у вкладці «Категорії» — вона одразу з'явиться тут.</div>
       <div class="hint" style="margin-top:-8px; margin-bottom:6px;">Бренд обов'язковий — за ним на сайті працює фільтр каталогу «Бренд». Якщо бренду ще немає в списку, просто впишіть новий — він одразу з'явиться у фільтрі на сайті після оновлення products.json.</div>
       <div class="hint" style="margin-top:-8px; margin-bottom:6px;">Якщо вказати стару ціну (більшу за поточну) — на сайті покажеться закреслена стара ціна і бейдж знижки «-XX%».</div>
       <div class="field"><label>Група / серія (необов'язково)</label><input id="fGroup" placeholder="Напр. Чехлы Blueo"></div>
@@ -259,6 +333,67 @@
       <div class="modal-actions">
         <button type="button" class="btn" onclick="closeModal()">Скасувати</button>
         <button type="submit" class="btn btn-primary">Зберегти товар</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="overlay" id="categoryModalOverlay">
+  <div class="modal" style="width:min(420px,96vw);">
+    <h3><span id="categoryModalTitle">Додати категорію</span><span class="x" onclick="closeCategoryModal()">✕</span></h3>
+    <form id="categoryForm" onsubmit="return saveCategory(event)">
+      <input type="hidden" id="cOrigName">
+      <div class="field"><label>Назва категорії *</label><input id="cName" required placeholder="Напр. Чохли iPhone"></div>
+      <div class="field">
+        <label>Іконка (емодзі)</label>
+        <input id="cIcon" placeholder="📦" maxlength="4">
+        <div class="icon-picker" id="iconPicker"></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="closeCategoryModal()">Скасувати</button>
+        <button type="submit" class="btn btn-primary">Зберегти категорію</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="overlay" id="reassignModalOverlay">
+  <div class="modal" style="width:min(420px,96vw);">
+    <h3><span>Перенести товари й видалити</span><span class="x" onclick="closeReassignModal()">✕</span></h3>
+    <p class="hint" id="reassignHint" style="margin-bottom:14px; font-size:13px; color:var(--text);"></p>
+    <div class="field"><label>Перенести товари в категорію</label>
+      <select id="reassignTarget"></select>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn" onclick="closeReassignModal()">Скасувати</button>
+      <button type="button" class="btn btn-danger" onclick="confirmReassignAndDelete()">Перенести і видалити категорію</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="reviewModalOverlay">
+  <div class="modal" style="width:min(480px,96vw);">
+    <h3><span id="reviewModalTitle">Додати відгук</span><span class="x" onclick="closeReviewModal()">✕</span></h3>
+    <form id="reviewAdminForm" onsubmit="return saveReview(event)">
+      <input type="hidden" id="rId">
+      <div class="field"><label>Оцінка *</label>
+        <select id="rRating" required>
+          <option value="5">★★★★★ (5)</option>
+          <option value="4">★★★★☆ (4)</option>
+          <option value="3">★★★☆☆ (3)</option>
+          <option value="2">★★☆☆☆ (2)</option>
+          <option value="1">★☆☆☆☆ (1)</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Ім'я *</label><input id="rName" required placeholder="Напр. Олена"></div>
+        <div class="field"><label>Місто</label><input id="rCity" placeholder="Напр. Київ"></div>
+      </div>
+      <div class="field"><label>Текст відгуку *</label><textarea id="rText" required placeholder="Текст відгуку"></textarea></div>
+      <div class="field checkline"><input type="checkbox" id="rPublished"><label for="rPublished" style="font-size:13px; color:var(--text);">Опубліковано на сайті</label></div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="closeReviewModal()">Скасувати</button>
+        <button type="submit" class="btn btn-primary">Зберегти відгук</button>
       </div>
     </form>
   </div>
@@ -290,44 +425,77 @@
   setInterval(() => { if(sessionStorage.getItem('ss_admin_ok') === '1') loadOrders(); }, 45000);
 
   let products = [];
+  let categories = []; // [{name, icon}]
+  let reviews = []; // [{id, rating, name, city, text, published, createdAt}]
   const DRAFT_KEY = 'smartstore_admin_draft';
+  const CAT_DRAFT_KEY = 'smartstore_admin_categories_draft';
+  const REVIEWS_DRAFT_KEY = 'smartstore_admin_reviews_draft';
+  const DEFAULT_ICON = '📦';
+  const ICON_CHOICES = ['📱','📲','🎧','⌚','🛡️','🔌','⚡','🔋','🚗','📦','🧢','👕','🎮','💻','🖱️','📷','🕶️','🔧','🏠','✨'];
 
   function loadInitial(){
     const draft = localStorage.getItem(DRAFT_KEY);
-    if(draft){
-      try{
-        products = JSON.parse(draft);
-        afterLoad();
-        showToast('Завантажено чернетку з цього браузера');
-        return;
-      }catch(e){}
-    }
-    fetch('products.json').then(r=>r.json()).then(data=>{
-      products = data;
+    const catDraft = localStorage.getItem(CAT_DRAFT_KEY);
+    const reviewsDraft = localStorage.getItem(REVIEWS_DRAFT_KEY);
+
+    const productsPromise = draft
+      ? Promise.resolve(JSON.parse(draft))
+      : fetch('products.json').then(r=>r.json()).catch(()=>[]);
+    const categoriesPromise = catDraft
+      ? Promise.resolve(JSON.parse(catDraft))
+      : fetch('categories.json').then(r=> r.ok ? r.json() : []).catch(()=>[]);
+    const reviewsPromise = reviewsDraft
+      ? Promise.resolve(JSON.parse(reviewsDraft))
+      : fetch('reviews.json').then(r=> r.ok ? r.json() : []).catch(()=>[]);
+
+    Promise.all([productsPromise, categoriesPromise, reviewsPromise]).then(([prodData, catData, reviewData]) => {
+      products = Array.isArray(prodData) ? prodData : [];
+      categories = Array.isArray(catData) ? catData.filter(c=>c && c.name) : [];
+      reviews = Array.isArray(reviewData) ? reviewData : [];
+      syncCategoriesWithProducts();
+      if(draft) showToast('Завантажено чернетку з цього браузера');
       afterLoad();
     }).catch(()=>{
-      products = [];
+      products = []; categories = []; reviews = [];
       afterLoad();
-      showToast('Не вдалось завантажити products.json — почніть з "Завантажити JSON" або додайте товари вручну');
+      showToast('Не вдалось завантажити дані — почніть з "Завантажити JSON" або додайте товари вручну');
+    });
+  }
+
+  // ensure every category used by a product exists in the managed categories list
+  // (so nothing referenced by a product is ever invisible in the Категорії tab)
+  function syncCategoriesWithProducts(){
+    const known = new Set(categories.map(c=>c.name));
+    products.forEach(p=>{
+      if(p.cat && !known.has(p.cat)){
+        categories.push({ name: p.cat, icon: DEFAULT_ICON });
+        known.add(p.cat);
+      }
     });
   }
 
   function afterLoad(){
     buildCatFilter();
+    buildProductCatSelect();
     renderTable();
+    renderCategoriesTable();
+    renderReviewsTable();
   }
 
   function saveDraft(){
     try{ localStorage.setItem(DRAFT_KEY, JSON.stringify(products)); }catch(e){}
   }
 
+  function saveCategoriesDraft(){
+    try{ localStorage.setItem(CAT_DRAFT_KEY, JSON.stringify(categories)); }catch(e){}
+  }
+
   function buildCatFilter(){
-    const cats = [...new Set(products.map(p=>p.cat).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'uk'));
+    const catNames = categories.length ? categories.map(c=>c.name) : [...new Set(products.map(p=>p.cat).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'uk'));
     const sel = document.getElementById('catFilter');
     const current = sel.value;
-    sel.innerHTML = '<option value="Всі">Категорія: всі</option>' + cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
-    if(cats.includes(current)) sel.value = current;
-    document.getElementById('catList').innerHTML = cats.map(c=>`<option value="${esc(c)}">`).join('');
+    sel.innerHTML = '<option value="Всі">Категорія: всі</option>' + catNames.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+    if(catNames.includes(current)) sel.value = current;
 
     const brands = [...new Set(products.map(p=>p.brand).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'uk'));
     const brandSel = document.getElementById('brandFilter');
@@ -335,6 +503,18 @@
     brandSel.innerHTML = '<option value="Всі">Бренд: всі</option>' + brands.map(b=>`<option value="${esc(b)}">${esc(b)}</option>`).join('');
     if(brands.includes(currentBrand)) brandSel.value = currentBrand;
     document.getElementById('brandList').innerHTML = brands.map(b=>`<option value="${esc(b)}">`).join('');
+  }
+
+  // populates the category <select> inside the product add/edit modal
+  function buildProductCatSelect(){
+    const sel = document.getElementById('fCat');
+    const current = sel.value;
+    if(categories.length === 0){
+      sel.innerHTML = '<option value="">— спочатку додайте категорію —</option>';
+      return;
+    }
+    sel.innerHTML = categories.map(c => `<option value="${esc(c.name)}">${c.icon||DEFAULT_ICON} ${esc(c.name)}</option>`).join('');
+    if(categories.some(c=>c.name===current)) sel.value = current;
   }
 
   function discountPct(p){
@@ -415,6 +595,7 @@
     saveDraft();
     buildCatFilter();
     renderTable();
+    renderCategoriesTable();
     showToast('Товар видалено (не забудьте зберегти файл)');
   }
 
@@ -497,6 +678,7 @@
     const oldPriceRaw = parseFloat(document.getElementById('fOldPrice').value);
     const oldPrice = (oldPriceRaw && oldPriceRaw > price) ? oldPriceRaw : null;
     const cat = document.getElementById('fCat').value.trim();
+    if(!cat){ showToast('Спочатку додайте хоча б одну категорію у вкладці «Категорії»'); return; }
     const brand = document.getElementById('fBrand').value.trim();
     const group = document.getElementById('fGroup').value.trim();
     const img = document.getElementById('fImg').value.trim();
@@ -519,6 +701,7 @@
     }
     saveDraft();
     buildCatFilter();
+    buildProductCatSelect();
     renderTable();
     closeModal();
   }
@@ -531,9 +714,13 @@
         const data = JSON.parse(ev.target.result);
         if(!Array.isArray(data)) throw new Error('not array');
         products = data;
+        syncCategoriesWithProducts();
         saveDraft();
+        saveCategoriesDraft();
         buildCatFilter();
+        buildProductCatSelect();
         renderTable();
+        renderCategoriesTable();
         showToast('JSON завантажено');
       }catch(err){
         showToast('Помилка: файл не є коректним products.json');
@@ -571,10 +758,433 @@
   // ---------- tabs ----------
   function switchTab(tab){
     document.getElementById('tabProductsBtn').classList.toggle('active', tab === 'products');
+    document.getElementById('tabCategoriesBtn').classList.toggle('active', tab === 'categories');
+    document.getElementById('tabReviewsBtn').classList.toggle('active', tab === 'reviews');
     document.getElementById('tabOrdersBtn').classList.toggle('active', tab === 'orders');
     document.getElementById('productsPanel').style.display = tab === 'products' ? 'block' : 'none';
+    document.getElementById('categoriesPanel').style.display = tab === 'categories' ? 'block' : 'none';
+    document.getElementById('reviewsPanel').style.display = tab === 'reviews' ? 'block' : 'none';
     document.getElementById('ordersPanel').style.display = tab === 'orders' ? 'block' : 'none';
     if(tab === 'orders') loadOrders();
+    if(tab === 'categories') renderCategoriesTable();
+    if(tab === 'reviews') renderReviewsTable();
+  }
+
+  // ---------- categories (stored in categories.json, separate from products) ----------
+  function categoryProductCount(name){
+    return products.filter(p=>p.cat===name).length;
+  }
+
+  function renderCategoriesTable(){
+    const body = document.getElementById('categoriesTbody');
+    document.getElementById('categoriesCountTag').textContent = `${categories.length} категорій`;
+    if(categories.length === 0){
+      body.innerHTML = '<tr class="empty-row"><td colspan="5">Категорій ще немає — додайте першу</td></tr>';
+      return;
+    }
+    body.innerHTML = categories.map((c,i) => `
+      <tr>
+        <td data-label="">
+          <div class="cat-order-btns">
+            <button title="Вище" onclick="moveCategory(${i},-1)" ${i===0?'disabled':''}>▲</button>
+            <button title="Нижче" onclick="moveCategory(${i},1)" ${i===categories.length-1?'disabled':''}>▼</button>
+          </div>
+        </td>
+        <td data-label="" class="cat-icon-cell">${c.icon||DEFAULT_ICON}</td>
+        <td data-label="Категорія" class="cat-name-cell">${esc(c.name)}</td>
+        <td data-label="Товарів">${categoryProductCount(c.name)}</td>
+        <td data-label="">
+          <div class="row-actions">
+            <button class="icon-btn" title="Редагувати" onclick="openCategoryModal('${esc(c.name).replace(/'/g,"\\'")}')">✎</button>
+            <button class="icon-btn del" title="Видалити" onclick="deleteCategory('${esc(c.name).replace(/'/g,"\\'")}')">✕</button>
+          </div>
+        </td>
+      </tr>`).join('');
+  }
+
+  function moveCategory(index, dir){
+    const target = index + dir;
+    if(target < 0 || target >= categories.length) return;
+    const tmp = categories[index];
+    categories[index] = categories[target];
+    categories[target] = tmp;
+    saveCategoriesDraft();
+    renderCategoriesTable();
+    buildCatFilter();
+    buildProductCatSelect();
+  }
+
+  let selectedIcon = DEFAULT_ICON;
+
+  function buildIconPicker(){
+    const picker = document.getElementById('iconPicker');
+    picker.innerHTML = ICON_CHOICES.map(ic => `<button type="button" class="${ic===selectedIcon?'sel':''}" onclick="pickIcon('${ic}')">${ic}</button>`).join('');
+  }
+  function pickIcon(ic){
+    selectedIcon = ic;
+    document.getElementById('cIcon').value = ic;
+    buildIconPicker();
+  }
+
+  function openCategoryModal(name){
+    document.getElementById('categoryForm').reset();
+    if(name){
+      const c = categories.find(x=>x.name===name);
+      if(!c) return;
+      document.getElementById('categoryModalTitle').textContent = 'Редагувати категорію';
+      document.getElementById('cOrigName').value = c.name;
+      document.getElementById('cName').value = c.name;
+      document.getElementById('cIcon').value = c.icon || DEFAULT_ICON;
+      selectedIcon = c.icon || DEFAULT_ICON;
+    } else {
+      document.getElementById('categoryModalTitle').textContent = 'Додати категорію';
+      document.getElementById('cOrigName').value = '';
+      document.getElementById('cIcon').value = DEFAULT_ICON;
+      selectedIcon = DEFAULT_ICON;
+    }
+    buildIconPicker();
+    document.getElementById('categoryModalOverlay').classList.add('open');
+  }
+  function closeCategoryModal(){ document.getElementById('categoryModalOverlay').classList.remove('open'); }
+  document.getElementById('categoryModalOverlay').addEventListener('click', e=>{ if(e.target.id==='categoryModalOverlay') closeCategoryModal(); });
+
+  function saveCategory(e){
+    e.preventDefault();
+    const origName = document.getElementById('cOrigName').value;
+    const name = document.getElementById('cName').value.trim();
+    const icon = document.getElementById('cIcon').value.trim() || DEFAULT_ICON;
+    if(!name) return false;
+
+    const dup = categories.find(c => c.name.toLowerCase() === name.toLowerCase() && c.name !== origName);
+    if(dup){ showToast('Категорія з такою назвою вже існує'); return false; }
+
+    if(origName){
+      const c = categories.find(x=>x.name===origName);
+      if(c){
+        if(origName !== name){
+          products.forEach(p=>{ if(p.cat===origName) p.cat = name; });
+        }
+        c.name = name;
+        c.icon = icon;
+      }
+      showToast('Категорію оновлено');
+    } else {
+      categories.push({ name, icon });
+      showToast('Категорію додано');
+    }
+    saveDraft();
+    saveCategoriesDraft();
+    buildCatFilter();
+    buildProductCatSelect();
+    renderTable();
+    renderCategoriesTable();
+    closeCategoryModal();
+    return false;
+  }
+
+  let pendingDeleteCategory = null;
+
+  function deleteCategory(name){
+    const count = categoryProductCount(name);
+    if(count === 0){
+      if(!confirm(`Видалити категорію «${name}»?`)) return;
+      categories = categories.filter(c=>c.name!==name);
+      saveCategoriesDraft();
+      buildCatFilter();
+      buildProductCatSelect();
+      renderCategoriesTable();
+      showToast('Категорію видалено');
+      return;
+    }
+    const others = categories.filter(c=>c.name!==name);
+    if(others.length === 0){
+      showToast('Це єдина категорія — спершу додайте іншу, щоб перенести товари');
+      return;
+    }
+    pendingDeleteCategory = name;
+    document.getElementById('reassignHint').textContent = `У категорії «${name}» зараз ${count} товар(ів). Оберіть, куди їх перенести перед видаленням:`;
+    document.getElementById('reassignTarget').innerHTML = others.map(c=>`<option value="${esc(c.name)}">${c.icon||DEFAULT_ICON} ${esc(c.name)}</option>`).join('');
+    document.getElementById('reassignModalOverlay').classList.add('open');
+  }
+  function closeReassignModal(){
+    document.getElementById('reassignModalOverlay').classList.remove('open');
+    pendingDeleteCategory = null;
+  }
+  document.getElementById('reassignModalOverlay').addEventListener('click', e=>{ if(e.target.id==='reassignModalOverlay') closeReassignModal(); });
+
+  function confirmReassignAndDelete(){
+    if(!pendingDeleteCategory) return;
+    const target = document.getElementById('reassignTarget').value;
+    const name = pendingDeleteCategory;
+    products.forEach(p=>{ if(p.cat===name) p.cat = target; });
+    categories = categories.filter(c=>c.name!==name);
+    saveDraft();
+    saveCategoriesDraft();
+    buildCatFilter();
+    buildProductCatSelect();
+    renderTable();
+    renderCategoriesTable();
+    closeReassignModal();
+    showToast(`Товари перенесено в «${target}», категорію видалено`);
+  }
+
+  function importCategoriesJson(file){
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try{
+        const data = JSON.parse(ev.target.result);
+        if(!Array.isArray(data)) throw new Error('not array');
+        categories = data.filter(c=>c && c.name);
+        syncCategoriesWithProducts();
+        saveCategoriesDraft();
+        buildCatFilter();
+        buildProductCatSelect();
+        renderCategoriesTable();
+        showToast('categories.json завантажено');
+      }catch(err){
+        showToast('Помилка: файл не є коректним categories.json');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function downloadCategoriesJson(){
+    const blob = new Blob([JSON.stringify(categories)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'categories.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    showToast('Файл завантажено — залиште його поруч з index.html на хостингу');
+  }
+
+  function copyCategoriesJson(){
+    navigator.clipboard.writeText(JSON.stringify(categories)).then(()=>{
+      showToast('JSON скопійовано в буфер обміну');
+    }).catch(()=>{
+      showToast('Не вдалось скопіювати — спробуйте "Зберегти categories.json"');
+    });
+  }
+
+  // ---------- reviews (moderation queue, stored in reviews.json) ----------
+  function saveReviewsDraft(){
+    try{ localStorage.setItem(REVIEWS_DRAFT_KEY, JSON.stringify(reviews)); }catch(e){}
+  }
+
+  function updateReviewsBadge(){
+    const badge = document.getElementById('reviewsBadge');
+    const pending = reviews.filter(r=>!r.published).length;
+    if(pending > 0){ badge.style.display = 'inline-block'; badge.textContent = pending; }
+    else { badge.style.display = 'none'; }
+  }
+
+  function filteredReviews(){
+    const filter = document.getElementById('reviewStatusFilter').value;
+    if(filter === 'published') return reviews.filter(r=>r.published);
+    if(filter === 'pending') return reviews.filter(r=>!r.published);
+    return reviews;
+  }
+
+  function reviewStars(n){
+    n = Math.max(0, Math.min(5, Math.round(n||0)));
+    return '★'.repeat(n) + '☆'.repeat(5-n);
+  }
+
+  function renderReviewsTable(){
+    updateReviewsBadge();
+    const list = filteredReviews();
+    const body = document.getElementById('reviewsTbody');
+    document.getElementById('reviewsCountTag').textContent = `${list.length} з ${reviews.length} відгуків`;
+    if(list.length === 0){
+      body.innerHTML = '<tr class="empty-row"><td colspan="5">Відгуків не знайдено</td></tr>';
+      return;
+    }
+    // newest first
+    const sorted = [...list].sort((a,b)=> new Date(b.createdAt||0) - new Date(a.createdAt||0));
+    body.innerHTML = sorted.map(r => `
+      <tr>
+        <td data-label="Оцінка" style="color:var(--amber); white-space:nowrap;">${reviewStars(r.rating)}</td>
+        <td data-label="Автор"><div class="review-author"><div class="nm">${esc(r.name)}</div>${r.city ? `<div class="cat">${esc(r.city)}</div>` : ''}</div></td>
+        <td data-label="Текст" style="max-width:320px; font-size:12.5px; color:var(--muted);">${esc((r.text||'').slice(0,140))}${(r.text||'').length>140?'…':''}</td>
+        <td data-label="Статус">
+          <span class="stock-pill ${r.published?'in':'out'}" onclick="toggleReviewPublished(${r.id})">
+            <span class="sw"></span>${r.published?'Опубліковано':'На модерації'}
+          </span>
+        </td>
+        <td data-label="">
+          <div class="row-actions">
+            <button class="icon-btn" title="Редагувати" onclick="openReviewModal(${r.id})">✎</button>
+            <button class="icon-btn del" title="Видалити" onclick="deleteReview(${r.id})">✕</button>
+          </div>
+        </td>
+      </tr>`).join('');
+  }
+
+  function toggleReviewPublished(id){
+    const r = reviews.find(x=>x.id===id);
+    if(!r) return;
+    r.published = !r.published;
+    saveReviewsDraft();
+    renderReviewsTable();
+    showToast(r.published ? 'Відгук опубліковано (не забудьте зберегти файл)' : 'Відгук знято з публікації');
+  }
+
+  function deleteReview(id){
+    if(!confirm('Видалити цей відгук?')) return;
+    reviews = reviews.filter(r=>r.id!==id);
+    saveReviewsDraft();
+    renderReviewsTable();
+    showToast('Відгук видалено (не забудьте зберегти файл)');
+  }
+
+  function openReviewModal(id){
+    document.getElementById('reviewAdminForm').reset();
+    if(id){
+      const r = reviews.find(x=>x.id===id);
+      if(!r) return;
+      document.getElementById('reviewModalTitle').textContent = 'Редагувати відгук';
+      document.getElementById('rId').value = r.id;
+      document.getElementById('rRating').value = r.rating || 5;
+      document.getElementById('rName').value = r.name || '';
+      document.getElementById('rCity').value = r.city || '';
+      document.getElementById('rText').value = r.text || '';
+      document.getElementById('rPublished').checked = !!r.published;
+    } else {
+      document.getElementById('reviewModalTitle').textContent = 'Додати відгук';
+      document.getElementById('rId').value = '';
+      document.getElementById('rRating').value = '5';
+      document.getElementById('rPublished').checked = true;
+    }
+    document.getElementById('reviewModalOverlay').classList.add('open');
+  }
+  function closeReviewModal(){ document.getElementById('reviewModalOverlay').classList.remove('open'); }
+  document.getElementById('reviewModalOverlay').addEventListener('click', e=>{ if(e.target.id==='reviewModalOverlay') closeReviewModal(); });
+
+  function saveReview(e){
+    e.preventDefault();
+    const idVal = document.getElementById('rId').value;
+    const rating = parseInt(document.getElementById('rRating').value) || 5;
+    const name = document.getElementById('rName').value.trim();
+    const city = document.getElementById('rCity').value.trim();
+    const text = document.getElementById('rText').value.trim();
+    const published = document.getElementById('rPublished').checked;
+
+    if(idVal){
+      const r = reviews.find(x=>x.id===parseInt(idVal));
+      if(r) Object.assign(r, {rating, name, city, text, published});
+      showToast('Відгук оновлено');
+    } else {
+      const newId = reviews.length ? Math.max(...reviews.map(r=>r.id)) + 1 : 1;
+      reviews.push({ id:newId, rating, name, city, text, published, createdAt: new Date().toISOString() });
+      showToast('Відгук додано');
+    }
+    saveReviewsDraft();
+    renderReviewsTable();
+    closeReviewModal();
+    return false;
+  }
+
+  function importReviewsJson(file){
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try{
+        const data = JSON.parse(ev.target.result);
+        if(!Array.isArray(data)) throw new Error('not array');
+        reviews = data;
+        saveReviewsDraft();
+        renderReviewsTable();
+        showToast('reviews.json завантажено');
+      }catch(err){
+        showToast('Помилка: файл не є коректним reviews.json');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  // ---- minimal RFC4180-ish CSV parser (handles quoted fields with commas/newlines) ----
+  function parseCsv(str){
+    const rows = [];
+    let row = [], field = '', inQuotes = false;
+    for(let i=0; i<str.length; i++){
+      const c = str[i], next = str[i+1];
+      if(inQuotes){
+        if(c === '"' && next === '"'){ field += '"'; i++; }
+        else if(c === '"'){ inQuotes = false; }
+        else { field += c; }
+      } else {
+        if(c === '"'){ inQuotes = true; }
+        else if(c === ','){ row.push(field); field = ''; }
+        else if(c === '\r'){ /* skip */ }
+        else if(c === '\n'){ row.push(field); rows.push(row); row = []; field = ''; }
+        else { field += c; }
+      }
+    }
+    if(field.length || row.length){ row.push(field); rows.push(row); }
+    return rows.filter(r => r.length > 1 || (r.length===1 && r[0] !== ''));
+  }
+
+  function importReviewsCsv(file){
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try{
+        const rows = parseCsv(ev.target.result);
+        if(rows.length < 2) throw new Error('empty csv');
+        const headers = rows[0].map(h => h.trim().toLowerCase());
+        const idx = {
+          rating: headers.findIndex(h => h.includes('rating') || h.includes('рейтинг') || h.includes('оцін')),
+          name: headers.findIndex(h => h === 'name' || h.includes("ім'я") || h.includes('імя')),
+          city: headers.findIndex(h => h.includes('city') || h.includes('місто')),
+          text: headers.findIndex(h => h === 'text' || h.includes('текст') || h.includes('відгук') || h.includes('message')),
+          date: headers.findIndex(h => h.includes('submitted') || h.includes('created') || h.includes('date')),
+        };
+        let added = 0, skipped = 0;
+        let newId = reviews.length ? Math.max(...reviews.map(r=>r.id)) + 1 : 1;
+        for(let i=1; i<rows.length; i++){
+          const cells = rows[i];
+          if(cells.every(c => !c || !c.trim())) continue;
+          const name = idx.name >= 0 ? (cells[idx.name]||'').trim() : '';
+          const text = idx.text >= 0 ? (cells[idx.text]||'').trim() : '';
+          if(!name || !text){ skipped++; continue; }
+          const dup = reviews.some(r => r.name === name && r.text === text);
+          if(dup){ skipped++; continue; }
+          const rating = idx.rating >= 0 ? (parseInt(cells[idx.rating]) || 5) : 5;
+          const city = idx.city >= 0 ? (cells[idx.city]||'').trim() : '';
+          const dateRaw = idx.date >= 0 ? cells[idx.date] : '';
+          const createdAt = dateRaw && !isNaN(new Date(dateRaw)) ? new Date(dateRaw).toISOString() : new Date().toISOString();
+          reviews.push({ id:newId++, rating, name, city, text, published:false, createdAt });
+          added++;
+        }
+        saveReviewsDraft();
+        renderReviewsTable();
+        document.getElementById('reviewStatusFilter').value = 'pending';
+        renderReviewsTable();
+        showToast(`Імпортовано ${added} нових відгуків на модерацію${skipped ? `, пропущено ${skipped}` : ''}`);
+      }catch(err){
+        showToast('Помилка: не вдалось розпізнати CSV-файл');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function downloadReviewsJson(){
+    const blob = new Blob([JSON.stringify(reviews)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'reviews.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    showToast('Файл завантажено — залиште його поруч з index.html на хостингу');
+  }
+
+  function copyReviewsJson(){
+    navigator.clipboard.writeText(JSON.stringify(reviews)).then(()=>{
+      showToast('JSON скопійовано в буфер обміну');
+    }).catch(()=>{
+      showToast('Не вдалось скопіювати — спробуйте "Зберегти reviews.json"');
+    });
   }
 
   // ---------- orders (via Netlify Function /.netlify/functions/orders) ----------
