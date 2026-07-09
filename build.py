@@ -120,6 +120,17 @@ HEAD_FONTS = (
     '&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">'
 )
 
+GTAG_SNIPPET = (
+    '<!-- Google tag (gtag.js) -->\n'
+    '<script async src="https://www.googletagmanager.com/gtag/js?id=AW-18311779741"></script>\n'
+    '<script>\n'
+    '  window.dataLayer = window.dataLayer || [];\n'
+    '  function gtag(){dataLayer.push(arguments);}\n'
+    "  gtag('js', new Date());\n"
+    "  gtag('config', 'AW-18311779741');\n"
+    '</script>'
+)
+
 HEADER_HTML = """<header>
   <div class="logo"><a href="{root}index.html" style="display:flex;align-items:center;gap:10px;"><img src="{root}logo.jpg" alt="SMART STORE логотип">SMART STORE</a></div>
   <nav class="links">
@@ -471,6 +482,7 @@ def render_product_page(p, products, cat_slugs):
 <meta property="product:price:amount" content="{p['price']}">
 <meta property="product:price:currency" content="{p.get('cur','UAH')}">
 <link rel="icon" type="image/jpeg" href="{root}logo.jpg">
+{GTAG_SNIPPET}
 {HEAD_FONTS}
 <link rel="stylesheet" href="{root}assets/style.css">
 <script type="application/ld+json">{ld_json}</script>
@@ -591,6 +603,7 @@ def render_category_page(cat, products_in_cat, all_counts, cat_slugs):
 <meta property="og:description" content="{esc(meta_desc)}">
 <meta property="og:url" content="{canonical}">
 <link rel="icon" type="image/jpeg" href="{root}logo.jpg">
+{GTAG_SNIPPET}
 {HEAD_FONTS}
 <link rel="stylesheet" href="{root}assets/style.css">
 <script type="application/ld+json">{ld_json}</script>
