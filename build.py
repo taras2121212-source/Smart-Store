@@ -137,6 +137,7 @@ FOOTER_HTML = """<footer>
       <a href="{root}index.html#why">Про нас</a>
       <a href="{root}index.html#contacts">Контакти</a>
       <a href="{root}reviews.html">Відгуки</a>
+      <a href="{root}oferta.html">Договір оферти</a>
     </div>
     <div>
       <h4>Контакти</h4>
@@ -195,6 +196,165 @@ TOAST_JS = """
     pageAddToCart(id);
     location.href = '__ROOT__index.html?add=' + id + '#cart';
   }
+</script>"""
+
+# ---------- category page facet filters (brand / model / color / stock / price sort) ----------
+# Works on the already-rendered static cards (progressive enhancement) so the category
+# page keeps its SEO-friendly server-rendered product list, while still getting the
+# same filtering/sorting UX as the homepage catalog.
+CATEGORY_FACET_HTML = """
+<div class="facet-row" id="catFacetRow">
+  <select id="catSortFilter">
+    <option value="default">Сортування: за замовчуванням</option>
+    <option value="price_asc">Ціна: спочатку дешевші</option>
+    <option value="price_desc">Ціна: спочатку дорожчі</option>
+  </select>
+  <select id="catBrandFilter"><option value="Всі">Бренд: всі</option></select>
+  <select id="catModelFilter"><option value="Всі">Модель: всі</option></select>
+  <select id="catColorFilter"><option value="Всі">Колір: всі</option></select>
+  <label class="chip stock-toggle" for="catStockOnly">
+    <input type="checkbox" id="catStockOnly">
+    Тільки в наявності
+  </label>
+</div>"""
+
+CATEGORY_FACET_JS = """
+<script>
+(function(){
+  var PAGE = 24;
+  var visible = PAGE;
+
+  var COLOR_MAP = [
+    [/\\bчорн(ий|а|е)\\b|\\bblack\\b/i,'Чорний'],
+    [/\\bбіл(ий|а)\\b|\\bwhite\\b/i,'Білий'],
+    [/\\bdeep blue\\b/i,'Темно-синій'],
+    [/\\bnavy\\b/i,'Темно-синій'],
+    [/\\bсин(ій|я)\\b|\\bblue\\b/i,'Синій'],
+    [/\\bзелен(ий|а)\\b|\\bgreen\\b/i,'Зелений'],
+    [/\\bчервон(ий|а)\\b|\\bred\\b/i,'Червоний'],
+    [/\\bрожев(ий|а)\\b|\\bрозов(ий|а)\\b|\\bpink sand\\b|\\bpink\\b/i,'Рожевий'],
+    [/\\bфіолетов(ий|а)\\b|\\bpurple\\b/i,'Фіолетовий'],
+    [/\\bоранжев(ий|а)\\b|\\borange\\b/i,'Помаранчевий'],
+    [/\\bсір(ий|а)\\b|\\bgrey\\b|\\bgray\\b/i,'Сірий'],
+    [/\\bсріб(ний|на|ло)\\b|\\bsilver\\b/i,'Срібний'],
+    [/\\bзолот(ий|а|о)\\b|\\bgold\\b/i,'Золотий'],
+    [/\\bбежев(ий|а)\\b|\\bbeige\\b/i,'Бежевий'],
+    [/\\bжовт(ий|а)\\b|\\byellow\\b/i,'Жовтий'],
+    [/\\bкорич\\w*\\b|\\bbrown\\b|\\bcoffee\\b/i,'Коричневий'],
+    [/\\bпрозор\\w*\\b|\\bclear\\b|\\btransparent\\b|\\bcrystal\\b/i,'Прозорий'],
+    [/\\bграфіт\\w*\\b|\\bgraphite\\b/i,'Графітовий'],
+    [/\\bstarlight\\b/i,'Starlight'],
+    [/\\bблакитн(ий|а)\\b/i,'Блакитний'],
+    [/\\btitanium\\b|\\bтитан\\w*\\b/i,'Титановий'],
+  ];
+  function extractColor(name){
+    for(var i=0;i<COLOR_MAP.length;i++){ if(COLOR_MAP[i][0].test(name)) return COLOR_MAP[i][1]; }
+    return null;
+  }
+  function splitSeg(prefix, raw, unit){
+    unit = unit || '';
+    return raw.split('/').map(function(s){ return s.trim(); }).filter(Boolean)
+      .map(function(s){ return (prefix + ' ' + s + unit).replace(/\\s+/g,' ').trim(); });
+  }
+  function extractModels(name){
+    var out = [];
+    function add(x){ if(out.indexOf(x) === -1) out.push(x); }
+    var m = name.match(/iPhone\\s+((?:\\d+(?!D)|\\/|\\s+|Pro\\s*Max|Pro|Plus|mini)+)/i);
+    if(m) splitSeg('iPhone', m[1]).forEach(add);
+    m = name.match(/Apple Watch\\s+([0-9\\/]+)\\s*mm/i);
+    if(m) splitSeg('Apple Watch', m[1], 'mm').forEach(add);
+    m = name.match(/AirPods\\s+((?:Pro\\s+)?[0-9\\/]+)/i);
+    if(m){
+      var raw = m[1];
+      var proMatch = raw.match(/^Pro\\s+(.+)$/i);
+      if(proMatch) splitSeg('AirPods Pro', proMatch[1]).forEach(add);
+      else splitSeg('AirPods', raw).forEach(add);
+    }
+    m = name.match(/iPad[^]*?(?=\\s+(?:Toby|Domo|Magi|Peca)\\s+Series)/i);
+    if(m){
+      var norm = m[0].trim().replace(/["\\u201c\\u201d]/g,'').replace(/\\s*\\/\\s*/g,'/').replace(/\\s+/g,' ');
+      add(norm);
+    }
+    return out;
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    var grid = document.getElementById('catProdGrid');
+    if(!grid) return;
+    var cards = Array.prototype.slice.call(grid.querySelectorAll('.prod-card')).map(function(el){
+      var name = el.dataset.name || '';
+      return {
+        el: el,
+        price: parseFloat(el.dataset.price) || 0,
+        available: el.dataset.available === '1',
+        brand: el.dataset.brand || 'Інше',
+        color: extractColor(name),
+        models: extractModels(name)
+      };
+    });
+
+    var brandSel = document.getElementById('catBrandFilter');
+    var modelSel = document.getElementById('catModelFilter');
+    var colorSel = document.getElementById('catColorFilter');
+    var stockChk = document.getElementById('catStockOnly');
+    var sortSel = document.getElementById('catSortFilter');
+
+    var brands = [], models = [], colors = [];
+    cards.forEach(function(c){
+      if(c.brand && brands.indexOf(c.brand) === -1) brands.push(c.brand);
+      if(c.color && colors.indexOf(c.color) === -1) colors.push(c.color);
+      c.models.forEach(function(m){ if(models.indexOf(m) === -1) models.push(m); });
+    });
+    brands.sort(function(a,b){ return a.localeCompare(b,'uk'); });
+    models.sort(function(a,b){ return a.localeCompare(b,'uk'); });
+    colors.sort(function(a,b){ return a.localeCompare(b,'uk'); });
+    brandSel.innerHTML = '<option value="Всі">Бренд: всі</option>' + brands.map(function(b){ return '<option>'+b+'</option>'; }).join('');
+    modelSel.innerHTML = '<option value="Всі">Модель: всі</option>' + models.map(function(m){ return '<option>'+m+'</option>'; }).join('');
+    colorSel.innerHTML = '<option value="Всі">Колір: всі</option>' + colors.map(function(c){ return '<option>'+c+'</option>'; }).join('');
+
+    // hide facets that have nothing to filter on (e.g. no recognizable models/colors in this category)
+    if(models.length === 0) modelSel.style.display = 'none';
+    if(colors.length === 0) colorSel.style.display = 'none';
+    if(brands.length <= 1) brandSel.style.display = 'none';
+
+    var loadMoreRow = document.getElementById('catLoadMoreRow');
+    var loadMoreBtn = document.getElementById('catLoadMoreBtn');
+
+    function apply(){
+      var b = brandSel.value, m = modelSel.value, c = colorSel.value, stockOnly = stockChk.checked, sort = sortSel.value;
+      var list = cards.filter(function(card){
+        if(b !== 'Всі' && card.brand !== b) return false;
+        if(m !== 'Всі' && card.models.indexOf(m) === -1) return false;
+        if(c !== 'Всі' && card.color !== c) return false;
+        if(stockOnly && !card.available) return false;
+        return true;
+      });
+      list.sort(function(a,b2){
+        if(a.available !== b2.available) return a.available ? -1 : 1;
+        if(sort === 'price_asc') return a.price - b2.price;
+        if(sort === 'price_desc') return b2.price - a.price;
+        return 0;
+      });
+      cards.forEach(function(card){ card.el.style.display = 'none'; });
+      list.slice(0, visible).forEach(function(card){ card.el.style.display = ''; grid.appendChild(card.el); });
+      loadMoreRow.style.display = list.length > visible ? 'flex' : 'none';
+      var empty = document.getElementById('catEmptyNote');
+      if(list.length === 0){
+        if(!empty){
+          empty = document.createElement('div');
+          empty.id = 'catEmptyNote';
+          empty.className = 'empty-note';
+          empty.textContent = 'За цим фільтром товарів не знайдено.';
+          grid.appendChild(empty);
+        }
+      } else if(empty){ empty.remove(); }
+    }
+    [brandSel, modelSel, colorSel, sortSel].forEach(function(s){ s.addEventListener('change', function(){ visible = PAGE; apply(); }); });
+    stockChk.addEventListener('change', function(){ visible = PAGE; apply(); });
+    if(loadMoreBtn) loadMoreBtn.addEventListener('click', function(){ visible += PAGE; apply(); });
+    apply();
+  });
+})();
 </script>"""
 
 
@@ -360,8 +520,9 @@ def render_category_page(cat, products_in_cat, all_counts, cat_slugs):
     cards = []
     for r in products_in_cat:
         r_in = r.get("available", True)
+        brand = esc(r.get("brand") or "Інше")
         cards.append(f"""
-        <a class="prod-card" href="../product/{r['id']}-{slugify(r['name'])}.html">
+        <a class="prod-card" data-price="{r['price']}" data-available="{1 if r_in else 0}" data-brand="{brand}" data-name="{esc(r['name'])}" href="../product/{r['id']}-{slugify(r['name'])}.html">
           <div class="prod-media">
             <span class="prod-badge {'' if r_in else 'out'}">{'В наявності' if r_in else 'Немає в наявності'}</span>
             {sale_badge_html(r)}
@@ -427,7 +588,11 @@ def render_category_page(cat, products_in_cat, all_counts, cat_slugs):
 </div>
 
 <section class="block" style="padding-top:0;">
-  <div class="prod-grid">{''.join(cards)}</div>
+  {CATEGORY_FACET_HTML}
+  <div class="prod-grid" id="catProdGrid">{''.join(cards)}</div>
+  <div class="load-more-row" id="catLoadMoreRow" style="display:none;">
+    <button class="btn btn-ghost" id="catLoadMoreBtn">Показати ще</button>
+  </div>
 </section>
 
 {FOOTER_HTML.format(root=root, cat_links=footer_cat_links(root, cat_slugs))}
@@ -435,6 +600,7 @@ def render_category_page(cat, products_in_cat, all_counts, cat_slugs):
 {TOAST_HTML}
 {CART_BADGE_JS}
 {TOAST_JS.replace('__ROOT__', root)}
+{CATEGORY_FACET_JS}
 </body>
 </html>
 """
@@ -450,7 +616,7 @@ def main():
     os.makedirs("category", exist_ok=True)
 
     today = date.today().isoformat()
-    urls = [f"{SITE_URL}/", f"{SITE_URL}/reviews.html"]
+    urls = [f"{SITE_URL}/", f"{SITE_URL}/reviews.html", f"{SITE_URL}/oferta.html"]
 
     # product pages
     seen_slugs = set()

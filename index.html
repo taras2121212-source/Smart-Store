@@ -94,6 +94,11 @@
   </div>
   <div class="filter-bar" id="filterBar"></div>
   <div class="facet-row" id="facetRow">
+    <select id="sortFilter" onchange="setSort(this.value)">
+      <option value="default">Сортування: за замовчуванням</option>
+      <option value="price_asc">Ціна: спочатку дешевші</option>
+      <option value="price_desc">Ціна: спочатку дорожчі</option>
+    </select>
     <select id="brandFilter" onchange="setBrand(this.value)">
       <option value="Всі">Бренд: всі</option>
     </select>
@@ -171,6 +176,7 @@
       <a href="#contacts">Контакти</a>
       <a href="javascript:void(0)" onclick="openInfo()">Доставка й оплата</a>
       <a href="reviews.html">Відгуки</a>
+      <a href="oferta.html">Договір оферти</a>
     </div>
     <div>
       <h4>Контакти</h4>
@@ -330,6 +336,7 @@
   let activeColor = "Всі";
   let activeBrand = "Всі";
   let stockOnly = false;
+  let sortOrder = "default";
   let visible = PAGE;
   let cart = {};
 
@@ -495,6 +502,7 @@
   function setColor(v){ activeColor = v; visible = PAGE; render(); }
   function setBrand(v){ activeBrand = v; visible = PAGE; render(); }
   function setStockOnly(v){ stockOnly = v; visible = PAGE; render(); }
+  function setSort(v){ sortOrder = v; visible = PAGE; render(); }
 
   function buildFacets(){
     const modelSel = document.getElementById('modelFilter');
@@ -516,7 +524,7 @@
   }
 
   function filtered(){
-    return products.filter(p => {
+    const list = products.filter(p => {
       if(activeCat !== 'Всі' && p.cat !== activeCat) return false;
       if(activeModel !== 'Всі' && !p._models.includes(activeModel)) return false;
       if(activeColor !== 'Всі' && p._color !== activeColor) return false;
@@ -524,6 +532,13 @@
       if(stockOnly && !p.available) return false;
       return true;
     });
+    list.sort((a,b) => {
+      if(a.available !== b.available) return a.available ? -1 : 1;
+      if(sortOrder === 'price_asc') return a.price - b.price;
+      if(sortOrder === 'price_desc') return b.price - a.price;
+      return 0;
+    });
+    return list;
   }
 
   function render(){
