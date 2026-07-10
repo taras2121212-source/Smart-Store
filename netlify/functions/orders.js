@@ -10,6 +10,19 @@ const { getStore } = require('@netlify/blobs');
 // Якщо змінну не задано — використовується значення нижче (те саме, що й пароль входу в admin.html за замовчуванням).
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'smartstore2026';
 
+// На деяких сайтах Netlify не підключає Blobs автоматично (помилка
+// "The environment has not been configured to use Netlify Blobs").
+// У такому разі сховище підключається вручну через BLOBS_SITE_ID та
+// BLOBS_TOKEN (Site settings → Environment variables на Netlify).
+function getOrdersStore() {
+  const siteID = process.env.BLOBS_SITE_ID;
+  const token = process.env.BLOBS_TOKEN;
+  if (siteID && token) {
+    return getStore({ name: 'orders', siteID, token });
+  }
+  return getStore('orders');
+}
+
 function json(statusCode, data) {
   return {
     statusCode,
@@ -29,7 +42,7 @@ function isAuthorized(event) {
 
 exports.handler = async (event) => {
   try {
-    const store = getStore('orders');
+    const store = getOrdersStore();
 
     if (event.httpMethod === 'POST') {
       // Публічно: клієнт залишає замовлення з сайту
