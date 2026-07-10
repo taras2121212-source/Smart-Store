@@ -28,9 +28,9 @@ function isAuthorized(event) {
 }
 
 exports.handler = async (event) => {
-  const store = getStore('orders');
-
   try {
+    const store = getStore('orders');
+
     if (event.httpMethod === 'POST') {
       // Публічно: клієнт залишає замовлення з сайту
       let body;

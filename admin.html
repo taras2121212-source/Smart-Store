@@ -1196,9 +1196,14 @@
     const tbody = document.getElementById('ordersTbody');
     try{
       const res = await fetch(ORDERS_ENDPOINT, { headers: { 'x-admin-pass': GATE_PASSWORD } });
-      if(!res.ok) throw new Error('http ' + res.status);
-      const data = await res.json();
-      orders = data.orders || [];
+      let data = null;
+      try{ data = await res.json(); }catch(e){}
+      if(!res.ok){
+        const detail = data && (data.details || data.error) ? esc(data.details || data.error) : `HTTP ${res.status}`;
+        tbody.innerHTML = `<tr class="empty-row"><td colspan="8">Не вдалось завантажити замовлення: ${detail}</td></tr>`;
+        return;
+      }
+      orders = (data && data.orders) || [];
       updateOrdersBadge();
       renderOrders();
     }catch(e){
