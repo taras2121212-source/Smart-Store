@@ -207,10 +207,13 @@
   <div id="categoriesPanel" style="display:none;">
     <div class="notice" id="categoriesNotice">
       Категорії зберігаються у файлі <b class="mono">categories.json</b> (окремо від товарів). Тут можна
-      додавати нові категорії, перейменовувати наявні (назва одразу зміниться в усіх товарах цієї категорії)
-      та видаляти непотрібні. Порядок у списку — це порядок, у якому категорії показуються на сайті.
-      Після змін натисніть «Зберегти categories.json» і замініть цим файлом старий на хостингу поруч із
-      <b class="mono">products.json</b>, потім запустіть <b class="mono">python3 build.py</b>.
+      додавати нові категорії, перейменовувати наявні (назва одразу зміниться в усіх товарах цієї категорії),
+      видаляти непотрібні та <b>приховувати категорію разом з усіма її товарами з сайту</b> (клікніть на
+      статус «Показано» / «Приховано» в таблиці — товари при цьому не видаляються, лишаються в базі й
+      знову з'являться на сайті, якщо категорію повернути назад). Порядок у списку — це порядок, у якому
+      категорії показуються на сайті. Після змін натисніть «Зберегти categories.json» і замініть цим файлом
+      старий на хостингу поруч із <b class="mono">products.json</b>, потім запустіть <b class="mono">python3 build.py</b>
+      (він же прибере зі сторінок товари прихованих категорій).
     </div>
 
     <div class="toolbar">
@@ -224,11 +227,12 @@
 
     <table>
       <thead>
-        <tr><th></th><th></th><th>Категорія</th><th>Товарів</th><th></th></tr>
+        <tr><th></th><th></th><th>Категорія</th><th>Товарів</th><th>На сайті</th><th></th></tr>
       </thead>
       <tbody id="categoriesTbody"></tbody>
     </table>
   </div>
+
 
   <div id="reviewsPanel" style="display:none;">
     <div class="notice" id="reviewsNotice">
@@ -349,6 +353,8 @@
         <input id="cIcon" placeholder="📦" maxlength="4">
         <div class="icon-picker" id="iconPicker"></div>
       </div>
+      <div class="field checkline"><input type="checkbox" id="cVisible" checked><label for="cVisible" style="font-size:13px; color:var(--text);">Показувати категорію на сайті</label></div>
+      <div class="hint" style="margin-top:-8px;">Якщо вимкнути — категорія і всі товари в ній зникнуть з сайту, але лишаться в базі й адмінці.</div>
       <div class="modal-actions">
         <button type="button" class="btn" onclick="closeCategoryModal()">Скасувати</button>
         <button type="submit" class="btn btn-primary">Зберегти категорію</button>
@@ -492,9 +498,10 @@
 
   function buildCatFilter(){
     const catNames = categories.length ? categories.map(c=>c.name) : [...new Set(products.map(p=>p.cat).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'uk'));
+    const hiddenSet = new Set(categories.filter(c=>c.hidden).map(c=>c.name));
     const sel = document.getElementById('catFilter');
     const current = sel.value;
-    sel.innerHTML = '<option value="Всі">Категорія: всі</option>' + catNames.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+    sel.innerHTML = '<option value="Всі">Категорія: всі</option>' + catNames.map(c=>`<option value="${esc(c)}">${esc(c)}${hiddenSet.has(c)?' (приховано)':''}</option>`).join('');
     if(catNames.includes(current)) sel.value = current;
 
     const brands = [...new Set(products.map(p=>p.brand).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'uk'));
@@ -513,7 +520,7 @@
       sel.innerHTML = '<option value="">— спочатку додайте категорію —</option>';
       return;
     }
-    sel.innerHTML = categories.map(c => `<option value="${esc(c.name)}">${c.icon||DEFAULT_ICON} ${esc(c.name)}</option>`).join('');
+    sel.innerHTML = categories.map(c => `<option value="${esc(c.name)}">${c.icon||DEFAULT_ICON} ${esc(c.name)}${c.hidden?' (приховано з сайту)':''}</option>`).join('');
     if(categories.some(c=>c.name===current)) sel.value = current;
   }
 
@@ -553,6 +560,7 @@
       const priceCell = d > 0
         ? `<div style="text-decoration:line-through; color:var(--muted); font-size:11.5px;">${fmt(p.oldPrice)}</div><div>${fmt(p.price)} <span style="color:var(--red); font-weight:700; font-size:11px;">-${d}%</span></div>`
         : fmt(p.price);
+      const catHidden = categories.some(c=>c.name===p.cat && c.hidden);
       return `
       <tr>
         <td data-label="Товар">
@@ -560,7 +568,7 @@
             <div class="thumb"><img src="${esc(p.img)}" alt="" onerror="this.style.display='none'"></div>
             <div>
               <div class="nm">${esc(p.name)}</div>
-              <div class="cat">${esc(p.cat)}${p.brand ? ' · ' + esc(p.brand) : ''}</div>
+              <div class="cat">${esc(p.cat)}${p.brand ? ' · ' + esc(p.brand) : ''}${catHidden ? ' · <span style="color:var(--red);">категорію приховано з сайту</span>' : ''}</div>
             </div>
           </div>
         </td>
@@ -779,11 +787,11 @@
     const body = document.getElementById('categoriesTbody');
     document.getElementById('categoriesCountTag').textContent = `${categories.length} категорій`;
     if(categories.length === 0){
-      body.innerHTML = '<tr class="empty-row"><td colspan="5">Категорій ще немає — додайте першу</td></tr>';
+      body.innerHTML = '<tr class="empty-row"><td colspan="6">Категорій ще немає — додайте першу</td></tr>';
       return;
     }
     body.innerHTML = categories.map((c,i) => `
-      <tr>
+      <tr style="${c.hidden ? 'opacity:.55;' : ''}">
         <td data-label="">
           <div class="cat-order-btns">
             <button title="Вище" onclick="moveCategory(${i},-1)" ${i===0?'disabled':''}>▲</button>
@@ -793,6 +801,11 @@
         <td data-label="" class="cat-icon-cell">${c.icon||DEFAULT_ICON}</td>
         <td data-label="Категорія" class="cat-name-cell">${esc(c.name)}</td>
         <td data-label="Товарів">${categoryProductCount(c.name)}</td>
+        <td data-label="На сайті">
+          <span class="stock-pill ${!c.hidden?'in':'out'}" onclick="toggleCategoryHidden('${esc(c.name).replace(/'/g,"\\'")}')">
+            <span class="sw"></span>${!c.hidden?'Показано':'Приховано'}
+          </span>
+        </td>
         <td data-label="">
           <div class="row-actions">
             <button class="icon-btn" title="Редагувати" onclick="openCategoryModal('${esc(c.name).replace(/'/g,"\\'")}')">✎</button>
@@ -800,6 +813,16 @@
           </div>
         </td>
       </tr>`).join('');
+  }
+
+  function toggleCategoryHidden(name){
+    const c = categories.find(x=>x.name===name);
+    if(!c) return;
+    c.hidden = !c.hidden;
+    saveCategoriesDraft();
+    renderCategoriesTable();
+    buildProductCatSelect();
+    showToast(c.hidden ? `Категорію «${name}» приховано з сайту (не забудьте зберегти файл)` : `Категорію «${name}» знову показано на сайті`);
   }
 
   function moveCategory(index, dir){
@@ -835,11 +858,13 @@
       document.getElementById('cOrigName').value = c.name;
       document.getElementById('cName').value = c.name;
       document.getElementById('cIcon').value = c.icon || DEFAULT_ICON;
+      document.getElementById('cVisible').checked = !c.hidden;
       selectedIcon = c.icon || DEFAULT_ICON;
     } else {
       document.getElementById('categoryModalTitle').textContent = 'Додати категорію';
       document.getElementById('cOrigName').value = '';
       document.getElementById('cIcon').value = DEFAULT_ICON;
+      document.getElementById('cVisible').checked = true;
       selectedIcon = DEFAULT_ICON;
     }
     buildIconPicker();
@@ -853,6 +878,7 @@
     const origName = document.getElementById('cOrigName').value;
     const name = document.getElementById('cName').value.trim();
     const icon = document.getElementById('cIcon').value.trim() || DEFAULT_ICON;
+    const hidden = !document.getElementById('cVisible').checked;
     if(!name) return false;
 
     const dup = categories.find(c => c.name.toLowerCase() === name.toLowerCase() && c.name !== origName);
@@ -866,10 +892,11 @@
         }
         c.name = name;
         c.icon = icon;
+        c.hidden = hidden;
       }
       showToast('Категорію оновлено');
     } else {
-      categories.push({ name, icon });
+      categories.push({ name, icon, hidden });
       showToast('Категорію додано');
     }
     saveDraft();

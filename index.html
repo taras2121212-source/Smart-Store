@@ -52,9 +52,9 @@
 
 <section class="hero">
   <div>
-    <div class="eyebrow">Аксесуари для смартфонів</div>
-    <h1>Твій телефон заслуговує <span class="accent">повного заряду</span> стилю</h1>
-    <p>Чохли, кабелі, зарядні пристрої, навушники та тримачі — все, щоб гаджет служив довше і виглядав так, як треба саме тобі.</p>
+    <div class="eyebrow">⚡ Павербанки • Зарядні пристрої • Кабелі</div>
+    <h1><span class="accent">Павербанки</span> для будь-яких задач</h1>
+    <p>Павербанки Acefast, WiWU та Remax. Швидка зарядка PD і QC. Також адаптери та кабелі для будь-яких пристроїв.</p>
     <div class="cta-row">
       <button class="btn btn-primary" onclick="document.getElementById('products').scrollIntoView({behavior:'smooth'})">Дивитись каталог</button>
       <a href="#contacts"><button class="btn btn-ghost">Зв'язатися з нами</button></a>
@@ -68,17 +68,17 @@
         <defs><linearGradient id="grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#ffb03b"/><stop offset="100%" stop-color="#22d3b0"/></linearGradient></defs>
       </svg>
       <div class="pct" id="orbPct">26<span>%</span></div>
-      <div class="orbit-tag ot1"><span class="sw"></span>Швидка зарядка 65Вт</div>
-      <div class="orbit-tag ot2"><span class="sw"></span>Оригінальні матеріали</div>
+      <div class="orbit-tag ot1"><span class="sw"></span>Швидка зарядка PD/QC</div>
+      <div class="orbit-tag ot2"><span class="sw"></span>До 80000 мА·год</div>
     </div>
   </div>
 </section>
 
 <div class="trust">
-  <div><b>2–3 дні</b>&nbsp;доставка по Україні</div>
-  <div><b>14 днів</b>&nbsp;на повернення</div>
-  <div><b>12 міс</b>&nbsp;гарантія на техніку</div>
-  <div><b id="trustCount">150+</b>&nbsp;товарів у каталозі</div>
+  <div>⚡&nbsp;Швидка зарядка PD/QC</div>
+  <div>🔋&nbsp;До 80000 мА·год</div>
+  <div>🚚&nbsp;Доставка 1–3 дні</div>
+  <div>🛡️&nbsp;Гарантія на техніку</div>
 </div>
 
 <section class="block" id="categories">
@@ -456,12 +456,13 @@
   ])
     .then(([data, cats]) => {
       products = data;
-      products.forEach(p => { p._models = extractModels(p); p._color = extractColor(p); p._brand = extractBrand(p); });
       if(Array.isArray(cats)){
         CATEGORY_LIST = cats.filter(c => c && c.name);
         CATEGORY_LIST.forEach(c => { CAT_ICONS[c.name] = c.icon || '📦'; });
+        const hiddenCats = new Set(CATEGORY_LIST.filter(c => c.hidden).map(c => c.name));
+        if(hiddenCats.size) products = products.filter(p => !hiddenCats.has(p.cat));
       }
-      document.getElementById('trustCount').textContent = products.length + '+';
+      products.forEach(p => { p._models = extractModels(p); p._color = extractColor(p); p._brand = extractBrand(p); });
       buildCategories();
       buildFilters();
       buildFacets();
@@ -499,7 +500,9 @@
   function buildCategories(){
     const counts = catCounts();
     const grid = document.getElementById('catGrid');
-    const names = CATEGORY_LIST.length ? CATEGORY_LIST.map(c => c.name) : Object.keys(counts);
+    const names = CATEGORY_LIST.length
+      ? CATEGORY_LIST.filter(c => !c.hidden).map(c => c.name)
+      : Object.keys(counts);
     grid.innerHTML = names.map(cat => `
       <a class="cat-card" href="category/${slugify(cat)}.html">
         <div class="ic">${CAT_ICONS[cat] || '📦'}</div>

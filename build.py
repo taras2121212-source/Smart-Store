@@ -12,6 +12,7 @@
 import json
 import os
 import re
+import shutil
 import html
 from datetime import date
 
@@ -390,14 +391,18 @@ def category_slug_map(counts):
     return {cat: slugify(cat) for cat in counts}
 
 
-def build_category_order(categories, counts):
+def build_category_order(categories, counts, include_hidden=True):
     """Merge the explicit categories.json list (in its saved order) with any
     category names that only appear on products (e.g. legacy data or a
     category referenced by a product but not — yet — listed in
-    categories.json). Returns an ordered list of category names."""
-    order = [c["name"] for c in categories]
+    categories.json). Returns an ordered list of category names.
+    When include_hidden is False, categories marked "hidden" in
+    categories.json (hidden from the public site via the admin panel) are
+    skipped entirely."""
+    order = [c["name"] for c in categories if include_hidden or not c.get("hidden")]
+    hidden_names = {c["name"] for c in categories if c.get("hidden")}
     for cat in counts:
-        if cat not in order:
+        if cat not in order and cat not in hidden_names:
             order.append(cat)
     return order
 
@@ -656,29 +661,36 @@ def main():
     if categories:
         CAT_ICONS.update({c["name"]: (c.get("icon") or "📦") for c in categories})
 
-    counts = category_counts(products)
-    cat_order = build_category_order(categories, counts)
+    hidden_cat_names = {c["name"] for c in categories if c.get("hidden")}
+    visible_products = [p for p in products if p["cat"] not in hidden_cat_names]
+
+    counts = category_counts(visible_products)
+    cat_order = build_category_order(categories, counts, include_hidden=False)
     cat_slugs = {cat: slugify(cat) for cat in cat_order}
 
+    # start from a clean slate so pages for now-hidden/removed categories
+    # or products don't linger on the server from a previous build
+    shutil.rmtree("product", ignore_errors=True)
+    shutil.rmtree("category", ignore_errors=True)
     os.makedirs("product", exist_ok=True)
     os.makedirs("category", exist_ok=True)
 
     today = date.today().isoformat()
     urls = [f"{SITE_URL}/", f"{SITE_URL}/reviews.html", f"{SITE_URL}/oferta.html"]
 
-    # product pages
+    # product pages (skip products whose category is hidden from the site)
     seen_slugs = set()
-    for p in products:
+    for p in visible_products:
         slug = slugify(p["name"])
         fname = f"{p['id']}-{slug}.html"
-        out = render_product_page(p, products, cat_slugs)
+        out = render_product_page(p, visible_products, cat_slugs)
         with open(f"product/{fname}", "w", encoding="utf-8") as f:
             f.write(out)
         urls.append(f"{SITE_URL}/product/{fname}")
 
-    # category pages
+    # category pages (hidden categories are already excluded from cat_slugs)
     for cat, slug in cat_slugs.items():
-        items = [p for p in products if p["cat"] == cat]
+        items = [p for p in visible_products if p["cat"] == cat]
         out = render_category_page(cat, items, counts, cat_slugs)
         with open(f"category/{slug}.html", "w", encoding="utf-8") as f:
             f.write(out)
@@ -696,7 +708,9 @@ def main():
     with open("robots.txt", "w", encoding="utf-8") as f:
         f.write(f"User-agent: *\nAllow: /\nDisallow: /admin.html\n\nSitemap: {SITE_URL}/sitemap.xml\n")
 
-    print(f"Generated {len(products)} product pages, {len(cat_slugs)} category pages.")
+    print(f"Generated {len(visible_products)} product pages, {len(cat_slugs)} category pages.")
+    if len(visible_products) < len(products):
+        print(f"  ({len(products) - len(visible_products)} products skipped — hidden category)")
     print("Category slugs:")
     for cat, slug in cat_slugs.items():
         print(f"  {cat} -> {slug}")

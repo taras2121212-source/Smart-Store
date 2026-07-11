@@ -1,14 +1,14 @@
 [
-  { "name": "Чохли iPhone", "icon": "📱" },
-  { "name": "Чохли iPad", "icon": "📲" },
-  { "name": "Чохли AirPods", "icon": "🎧" },
-  { "name": "Ремінці Apple Watch", "icon": "⌚" },
-  { "name": "Захисне скло", "icon": "🛡️" },
-  { "name": "Кабелі", "icon": "🔌" },
-  { "name": "Адаптери", "icon": "⚡" },
-  { "name": "Павербанки", "icon": "🔋" },
-  { "name": "Навушники", "icon": "🎧" },
-  { "name": "Бездротова зарядка", "icon": "🔋" },
-  { "name": "Автоаксесуари", "icon": "🚗" },
-  { "name": "Інше", "icon": "📦" }
+  { "name": "Чохли iPhone", "icon": "📱", "hidden": false },
+  { "name": "Чохли iPad", "icon": "📲", "hidden": false },
+  { "name": "Чохли AirPods", "icon": "🎧", "hidden": false },
+  { "name": "Ремінці Apple Watch", "icon": "⌚", "hidden": false },
+  { "name": "Захисне скло", "icon": "🛡️", "hidden": false },
+  { "name": "Кабелі", "icon": "🔌", "hidden": false },
+  { "name": "Адаптери", "icon": "⚡", "hidden": false },
+  { "name": "Павербанки", "icon": "🔋", "hidden": false },
+  { "name": "Навушники", "icon": "🎧", "hidden": false },
+  { "name": "Бездротова зарядка", "icon": "🔋", "hidden": false },
+  { "name": "Автоаксесуари", "icon": "🚗", "hidden": false },
+  { "name": "Інше", "icon": "📦", "hidden": false }
 ]
