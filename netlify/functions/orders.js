@@ -1,14 +1,14 @@
 // netlify/functions/orders.js
 // Приймає замовлення з сайту (POST, публічно) і віддає/оновлює/видаляє їх для адмінки
-// (GET / PATCH / DELETE, захищено паролем). Дані зберігаються у Netlify Blobs —
-// окремому сховищі, яке автоматично доступне на Netlify, без сторонніх сервісів і токенів.
+// (GET / PATCH / DELETE, захищено сесією). Дані зберігаються у Netlify Blobs —
+// окремому сховищі, яке автоматично доступне на Netlify, без сторонніх сервісів.
+//
+// Авторизація: клієнт спершу логіниться через /.netlify/functions/auth (POST з паролем),
+// отримує HttpOnly підписаний cookie-токен, і браузер сам додає його до цих запитів —
+// пароль тут ніколи не порівнюється і не передається.
 
 const { getStore } = require('@netlify/blobs');
-
-// Пароль для перегляду/зміни замовлень з адмінки.
-// Рекомендується задати свій у Netlify: Site settings → Environment variables → ADMIN_PASSWORD.
-// Якщо змінну не задано — використовується значення нижче (те саме, що й пароль входу в admin.html за замовчуванням).
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'smartstore2026';
+const { isSessionValid } = require('./lib/session');
 
 // На деяких сайтах Netlify не підключає Blobs автоматично (помилка
 // "The environment has not been configured to use Netlify Blobs").
@@ -35,9 +35,7 @@ function json(statusCode, data) {
 }
 
 function isAuthorized(event) {
-  const headers = event.headers || {};
-  const pass = headers['x-admin-pass'] || headers['X-Admin-Pass'];
-  return pass === ADMIN_PASSWORD;
+  return isSessionValid(event);
 }
 
 exports.handler = async (event) => {
@@ -74,7 +72,7 @@ exports.handler = async (event) => {
     }
 
     if (event.httpMethod === 'GET') {
-      if (!isAuthorized(event)) return json(401, { error: 'Невірний пароль' });
+      if (!isAuthorized(event)) return json(401, { error: 'Сесія недійсна або закінчилась — увійдіть в адмінку знову' });
 
       const { blobs } = await store.list();
       const orders = await Promise.all(
@@ -85,7 +83,7 @@ exports.handler = async (event) => {
     }
 
     if (event.httpMethod === 'PATCH') {
-      if (!isAuthorized(event)) return json(401, { error: 'Невірний пароль' });
+      if (!isAuthorized(event)) return json(401, { error: 'Сесія недійсна або закінчилась — увійдіть в адмінку знову' });
       let body;
       try {
         body = JSON.parse(event.body || '{}');
@@ -103,7 +101,7 @@ exports.handler = async (event) => {
     }
 
     if (event.httpMethod === 'DELETE') {
-      if (!isAuthorized(event)) return json(401, { error: 'Невірний пароль' });
+      if (!isAuthorized(event)) return json(401, { error: 'Сесія недійсна або закінчилась — увійдіть в адмінку знову' });
       const id = event.queryStringParameters && event.queryStringParameters.id;
       if (!id) return json(400, { error: 'Немає id' });
       await store.delete(id);

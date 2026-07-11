@@ -157,6 +157,7 @@
       <input type="file" id="importFile" accept="application/json" style="display:none" onchange="importJson(this.files[0])">
       <button class="btn" onclick="copyJson()">Копіювати JSON</button>
       <button class="btn btn-primary" onclick="downloadJson()">Зберегти products.json</button>
+      <button class="btn btn-danger" onclick="logout()">Вийти</button>
     </div>
   </header>
 
@@ -408,27 +409,65 @@
 <div class="toast" id="toast"></div>
 
 <script>
-  const GATE_PASSWORD = 'smartstore2026'; // змініть на свій пароль
+  // Пароль ніколи не зберігається і не з'являється у цьому файлі: він вводиться
+  // один раз і перевіряється лише на сервері (/.netlify/functions/auth). Успішний
+  // вхід видає HttpOnly cookie-токен — JS у цій сторінці навіть не може його прочитати.
+  const AUTH_ENDPOINT = '/.netlify/functions/auth';
   const esc = s => (s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const fmt = n => Number(n||0).toLocaleString('uk-UA') + ' ₴';
 
-  function checkGate(){
-    const val = document.getElementById('gatePass').value;
-    if(val === GATE_PASSWORD){
-      sessionStorage.setItem('ss_admin_ok','1');
-      document.getElementById('gate').style.display = 'none';
-      document.getElementById('wrap').classList.add('show');
-      loadOrders();
-    } else {
-      document.getElementById('gateErr').textContent = 'Невірний пароль';
-    }
-  }
-  if(sessionStorage.getItem('ss_admin_ok') === '1'){
+  function showAdmin(){
     document.getElementById('gate').style.display = 'none';
     document.getElementById('wrap').classList.add('show');
     loadOrders();
   }
-  setInterval(() => { if(sessionStorage.getItem('ss_admin_ok') === '1') loadOrders(); }, 45000);
+  function showGate(msg){
+    document.getElementById('wrap').classList.remove('show');
+    document.getElementById('gate').style.display = 'flex';
+    document.getElementById('gateErr').textContent = msg || '';
+  }
+
+  async function checkGate(){
+    const btn = document.querySelector('#gate .btn-primary');
+    const val = document.getElementById('gatePass').value;
+    document.getElementById('gateErr').textContent = '';
+    if(btn){ btn.disabled = true; btn.textContent = 'Перевірка…'; }
+    try{
+      const res = await fetch(AUTH_ENDPOINT, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: val })
+      });
+      const data = await res.json().catch(()=>({}));
+      if(res.ok && data.ok){
+        document.getElementById('gatePass').value = '';
+        showAdmin();
+      } else {
+        document.getElementById('gateErr').textContent = data.error || 'Невірний пароль';
+      }
+    }catch(e){
+      document.getElementById('gateErr').textContent = 'Не вдалось звʼязатися з сервером входу';
+    }finally{
+      if(btn){ btn.disabled = false; btn.textContent = 'Увійти'; }
+    }
+  }
+
+  async function logout(){
+    try{ await fetch(AUTH_ENDPOINT, { method: 'DELETE', credentials: 'include' }); }catch(e){}
+    showGate();
+  }
+
+  // Перевірка діючої сесії при завантаженні сторінки (сам токен у HttpOnly cookie,
+  // тож звіряємо його на сервері, а не читаємо в JS)
+  (async function checkSessionOnLoad(){
+    try{
+      const res = await fetch(AUTH_ENDPOINT, { method: 'GET', credentials: 'include' });
+      const data = await res.json().catch(()=>({}));
+      if(res.ok && data.ok){ showAdmin(); } else { showGate(); }
+    }catch(e){ showGate(); }
+  })();
+  setInterval(() => { if(document.getElementById('wrap').classList.contains('show')) loadOrders(); }, 45000);
 
   let products = [];
   let categories = []; // [{name, icon}]
@@ -1222,9 +1261,13 @@
   async function loadOrders(){
     const tbody = document.getElementById('ordersTbody');
     try{
-      const res = await fetch(ORDERS_ENDPOINT, { headers: { 'x-admin-pass': GATE_PASSWORD } });
+      const res = await fetch(ORDERS_ENDPOINT, { credentials: 'include' });
       let data = null;
       try{ data = await res.json(); }catch(e){}
+      if(res.status === 401){
+        showGate('Сесія закінчилась — увійдіть знову');
+        return;
+      }
       if(!res.ok){
         const detail = data && (data.details || data.error) ? esc(data.details || data.error) : `HTTP ${res.status}`;
         tbody.innerHTML = `<tr class="empty-row"><td colspan="8">Не вдалось завантажити замовлення: ${detail}</td></tr>`;
@@ -1284,9 +1327,11 @@
     try{
       const res = await fetch(ORDERS_ENDPOINT, {
         method: 'PATCH',
-        headers: { 'Content-Type':'application/json', 'x-admin-pass': GATE_PASSWORD },
+        credentials: 'include',
+        headers: { 'Content-Type':'application/json' },
         body: JSON.stringify({ id, status })
       });
+      if(res.status === 401){ showGate('Сесія закінчилась — увійдіть знову'); return; }
       if(!res.ok) throw new Error();
       const o = orders.find(x => x.id === id);
       if(o) o.status = status;
@@ -1303,8 +1348,9 @@
     try{
       const res = await fetch(`${ORDERS_ENDPOINT}?id=${encodeURIComponent(id)}`, {
         method: 'DELETE',
-        headers: { 'x-admin-pass': GATE_PASSWORD }
+        credentials: 'include'
       });
+      if(res.status === 401){ showGate('Сесія закінчилась — увійдіть знову'); return; }
       if(!res.ok) throw new Error();
       orders = orders.filter(o => o.id !== id);
       updateOrdersBadge();
