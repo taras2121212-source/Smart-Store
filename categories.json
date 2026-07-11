@@ -1,14 +1,1 @@
-[
-  { "name": "Чохли iPhone", "icon": "📱", "hidden": true },
-  { "name": "Чохли iPad", "icon": "📲", "hidden": true },
-  { "name": "Чохли AirPods", "icon": "🎧", "hidden": true },
-  { "name": "Ремінці Apple Watch", "icon": "⌚", "hidden": true },
-  { "name": "Захисне скло", "icon": "🛡️", "hidden": true },
-  { "name": "Кабелі", "icon": "🔌", "hidden": false },
-  { "name": "Адаптери", "icon": "⚡", "hidden": false },
-  { "name": "Павербанки", "icon": "🔋", "hidden": false },
-  { "name": "Навушники", "icon": "🎧", "hidden": true },
-  { "name": "Бездротова зарядка", "icon": "🔋", "hidden": true },
-  { "name": "Автоаксесуари", "icon": "🚗", "hidden": true },
-  { "name": "Інше", "icon": "📦", "hidden": true }
-]
+[{"name":"Павербанки","icon":"🔋"},{"name":"Адаптери","icon":"⚡"},{"name":"Кабелі","icon":"🔌","hidden":false},{"name":"Навушники","icon":"🎧","hidden":true},{"name":"Чохли iPhone","icon":"📱","hidden":true},{"name":"Чохли iPad","icon":"📲","hidden":true},{"name":"Чохли AirPods","icon":"🎧","hidden":true},{"name":"Захисне скло","icon":"🛡️","hidden":true},{"name":"Ремінці Apple Watch","icon":"⌚","hidden":true},{"name":"Бездротова зарядка","icon":"🔋","hidden":true},{"name":"Автоаксесуари","icon":"🚗","hidden":true}]
