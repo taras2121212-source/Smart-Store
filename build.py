@@ -14,6 +14,8 @@ import os
 import re
 import shutil
 import html
+import urllib.request
+import urllib.error
 from datetime import date
 
 SITE_URL = "https://smartstoreua.com"
@@ -83,6 +85,43 @@ def pdp_price_html(p):
         f'<div class="pdp-old-price">{fmt_price(p["oldPrice"])}</div>'
         f'<div class="pdp-price">{fmt_price(p["price"])}</div>'
     )
+
+
+def sync_from_backend():
+    """Перед генерацією сторінок підтягуємо дані, які були опубліковані
+    з адмінки (зберігаються в Netlify Blobs через netlify/functions/catalog.js),
+    і перезаписуємо ними локальні products.json / categories.json / reviews.json —
+    саме це дозволяє редагувати каталог з адмінки й бачити зміни на сайті без
+    ручного заливання файлів.
+
+    Якщо з адмінки ще ніколи нічого не публікували (seeded=false), або запит
+    з якоїсь причини не вдався (немає мережі, перша збірка й функція ще не
+    задеплоєна тощо) — просто лишаємо файли такими, якими вони вже закомічені
+    в репозиторії. Це гарантує, що збірка ніколи не "ламається" через цей крок.
+    """
+    site = os.environ.get("URL") or os.environ.get("DEPLOY_PRIME_URL")
+    if not site:
+        print("sync_from_backend: немає URL сайту в середовищі збірки, пропускаю (локальна збірка?)")
+        return
+
+    for type_name, fname in (
+        ("products", "products.json"),
+        ("categories", "categories.json"),
+        ("reviews", "reviews.json"),
+    ):
+        try:
+            url = f"{site}/.netlify/functions/catalog?type={type_name}"
+            req = urllib.request.Request(url, headers={"Accept": "application/json"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                payload = json.loads(resp.read().decode("utf-8"))
+            if payload.get("seeded"):
+                with open(fname, "w", encoding="utf-8") as f:
+                    json.dump(payload["data"], f, ensure_ascii=False)
+                print(f"sync_from_backend: {fname} оновлено з адмінки ({len(payload['data'])} записів)")
+            else:
+                print(f"sync_from_backend: {fname} ще не публікували з адмінки — використовую файл з репозиторію")
+        except Exception as e:
+            print(f"sync_from_backend: не вдалось отримати {type_name} ({e}) — використовую файл з репозиторію")
 
 
 def load_products():
@@ -407,6 +446,38 @@ def build_category_order(categories, counts, include_hidden=True):
     return order
 
 
+def product_images(p):
+    """Список фото товару. Нові товари мають масив p['images']; старі записи,
+    збережені до появи мультифото, мають лише одне фото в p['img'] — тут це
+    прозоро підтримується, щоб нічого не зламалось на вже наявних товарах."""
+    imgs = p.get("images")
+    if isinstance(imgs, list) and len(imgs) > 0:
+        return [i for i in imgs if i]
+    return [p["img"]] if p.get("img") else []
+
+
+def pdp_gallery_html(p):
+    images = product_images(p)
+    if not images:
+        images = [p.get("img", "")]
+    main = images[0]
+    main_img = (
+        f'<img id="pdpMainImg" src="{esc(main)}" alt="{esc(p["name"])}" '
+        f'onerror="this.style.display=\'none\'; this.parentNode.insertAdjacentHTML(\'beforeend\',\'<div style=&quot;font-size:64px&quot;>{CAT_ICONS.get(p["cat"],"📦")}</div>\')">'
+    )
+    if len(images) <= 1:
+        return main_img, ""
+    thumbs = "".join(
+        f'<div class="pdp-thumb{" active" if i == 0 else ""}" onclick="'
+        f'document.getElementById(\'pdpMainImg\').src=this.querySelector(\'img\').src; '
+        f'this.parentNode.querySelectorAll(\'.pdp-thumb\').forEach(function(t){{t.classList.remove(\'active\')}}); '
+        f'this.classList.add(\'active\')">'
+        f'<img src="{esc(img)}" alt="{esc(p["name"])} — фото {i+1}" loading="lazy"></div>'
+        for i, img in enumerate(images)
+    )
+    return main_img, f'<div class="pdp-thumbs">{thumbs}</div>'
+
+
 def render_product_page(p, products, cat_slugs):
     root = "../"
     related = [x for x in products if x["cat"] == p["cat"] and x["id"] != p["id"]][:4]
@@ -425,7 +496,7 @@ def render_product_page(p, products, cat_slugs):
         "@context": "https://schema.org/",
         "@type": "Product",
         "name": p["name"],
-        "image": [p["img"]],
+        "image": product_images(p) or [p.get("img", "")],
         "description": desc or p["name"],
         "sku": str(p["id"]),
         "category": p["cat"],
@@ -470,6 +541,7 @@ def render_product_page(p, products, cat_slugs):
 
     stock_badge = f'<span class="pdp-badge {"" if in_stock else "out"}">{"В наявності" if in_stock else "Немає в наявності"}</span>'
     stock_note = "" if in_stock else '<div class="pdp-note">Цього товару зараз немає на складі. Додайте в кошик — менеджер уточнить термін надходження після оформлення замовлення.</div>'
+    pdp_main_img, pdp_thumbs = pdp_gallery_html(p)
 
     html_out = f"""<!DOCTYPE html>
 <html lang="uk">
@@ -505,11 +577,13 @@ def render_product_page(p, products, cat_slugs):
 </nav>
 
 <section class="pdp">
-  <div class="pdp-media">
-    {stock_badge}
-    {sale_badge_html(p)}
-    <img src="{esc(p['img'])}" alt="{esc(p['name'])}"
-         onerror="this.style.display='none'; this.parentNode.insertAdjacentHTML('beforeend','<div style=&quot;font-size:64px&quot;>{CAT_ICONS.get(p['cat'],'📦')}</div>')">
+  <div>
+    <div class="pdp-media">
+      {stock_badge}
+      {sale_badge_html(p)}
+      {pdp_main_img}
+    </div>
+    {pdp_thumbs}
   </div>
   <div>
     <div class="pdp-cat">{cat_link}</div>
@@ -655,6 +729,8 @@ def render_category_page(cat, products_in_cat, all_counts, cat_slugs):
 
 
 def main():
+    sync_from_backend()
+
     products = load_products()
     categories = load_categories()
 
