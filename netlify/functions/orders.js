@@ -6,6 +6,12 @@
 // Авторизація: клієнт спершу логіниться через /.netlify/functions/auth (POST з паролем),
 // отримує HttpOnly підписаний cookie-токен, і браузер сам додає його до цих запитів —
 // пароль тут ніколи не порівнюється і не передається.
+//
+// Якщо клієнт вказав email — після збереження замовлення йому надсилається лист-
+// підтвердження через Resend (https://resend.com). Потрібні змінні середовища
+// RESEND_API_KEY і NOTIFY_FROM_EMAIL (див. EMAIL-SETUP.md). Якщо їх не задано,
+// або надсилання листа не вдалось — замовлення все одно зберігається як завжди,
+// це ніяк не впливає на основний потік.
 
 const { getStore } = require('@netlify/blobs');
 const { isSessionValid } = require('./lib/session');
@@ -38,6 +44,63 @@ function isAuthorized(event) {
   return isSessionValid(event);
 }
 
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]));
+}
+
+function orderConfirmationHtml(order) {
+  const itemsHtml = escapeHtml(order.items).replace(/\n/g, '<br>');
+  const branchLine = order.branch ? `<br>${escapeHtml(order.branch)}` : '';
+  return `
+    <div style="font-family:Arial,sans-serif; max-width:520px; margin:0 auto; color:#17181c;">
+      <h2 style="margin-bottom:4px;">Замовлення №${escapeHtml(order.id)} прийнято</h2>
+      <p style="color:#555;">Дякуємо за замовлення в SMART STORE! Менеджер зв'яжеться з вами найближчим часом для підтвердження та деталей доставки.</p>
+      <h3 style="margin-bottom:6px;">Товари</h3>
+      <p style="white-space:pre-wrap; font-size:14px;">${itemsHtml}</p>
+      <p style="font-size:16px;"><b>Разом: ${escapeHtml(order.total)}</b></p>
+      <h3 style="margin-bottom:6px;">Доставка</h3>
+      <p style="font-size:14px;">${escapeHtml(order.delivery)}${branchLine}<br>м. ${escapeHtml(order.city)}</p>
+      <h3 style="margin-bottom:6px;">Оплата</h3>
+      <p style="font-size:14px;">${escapeHtml(order.payment)}</p>
+      ${order.comment ? `<h3 style="margin-bottom:6px;">Коментар</h3><p style="font-size:14px;">${escapeHtml(order.comment)}</p>` : ''}
+      <p style="color:#999; font-size:12px; margin-top:24px;">SMART STORE</p>
+    </div>`;
+}
+
+// Best-effort: якщо RESEND_API_KEY/NOTIFY_FROM_EMAIL не задані, або запит не вдався
+// (немає мережі, невірний ключ тощо) — просто повертаємо false, замовлення це не ламає.
+async function sendConfirmationEmail(order) {
+  if (!order.email) return false;
+  const apiKey = process.env.RESEND_API_KEY;
+  const fromAddr = process.env.NOTIFY_FROM_EMAIL;
+  if (!apiKey || !fromAddr) return false;
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: fromAddr,
+        to: order.email,
+        subject: `Замовлення №${order.id} прийнято — SMART STORE`,
+        html: orderConfirmationHtml(order),
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    return res.ok;
+  } catch (e) {
+    return false;
+  }
+}
+
 exports.handler = async (event) => {
   try {
     const store = getOrdersStore();
@@ -58,6 +121,7 @@ exports.handler = async (event) => {
         status: 'new',
         name: String(body.name || '').slice(0, 200),
         phone: String(body.phone || '').slice(0, 60),
+        email: String(body.email || '').slice(0, 200),
         city: String(body.city || '').slice(0, 200),
         delivery: String(body.delivery || '').slice(0, 200),
         branch: String(body.branch || '').slice(0, 300),
@@ -68,7 +132,8 @@ exports.handler = async (event) => {
       };
 
       await store.setJSON(id, order);
-      return json(200, { ok: true, id });
+      const emailSent = await sendConfirmationEmail(order);
+      return json(200, { ok: true, id, emailSent });
     }
 
     if (event.httpMethod === 'GET') {

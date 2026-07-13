@@ -212,6 +212,7 @@
         <p class="hp"><label>Не заповнюйте: <input name="bot-field"></label></p>
         <div class="field"><label>Ім'я та прізвище *</label><input name="name" required placeholder="Напр. Олена Коваленко"></div>
         <div class="field"><label>Телефон *</label><input name="phone" type="tel" required placeholder="+380 00 000 00 00"></div>
+        <div class="field"><label>Email (необов'язково)</label><input name="email" type="email" placeholder="Для листа-підтвердження замовлення"></div>
         <div class="field field-relative">
           <label>Місто *</label>
           <input name="city" id="cityInput" required placeholder="Почніть вводити назву міста" autocomplete="off"
@@ -231,11 +232,11 @@
           <div class="np-hint" id="npHint"></div>
         </div>
         <div class="field"><label>Оплата</label>
-          <select name="payment">
-            <option>Накладений платіж</option>
-            <option>Передоплата на картку</option>
+          <select name="payment" id="paymentSelect" onchange="onPaymentChange()">
+            <option>Повна оплата на картку</option>
             <option>Оплата при отриманні</option>
           </select>
+          <div class="np-hint" id="paymentNote"></div>
         </div>
         <div class="field"><label>Коментар до замовлення</label><textarea name="comment" placeholder="Побажання, модель телефону тощо"></textarea></div>
         <input type="hidden" name="order" id="orderField">
@@ -252,7 +253,7 @@
       <div class="success-box">
         <div class="check">✓</div>
         <h3 style="justify-content:center;">Замовлення прийнято!</h3>
-        <p class="note" style="max-width:280px;">Дякуємо за замовлення. Наш менеджер зв'яжеться з вами найближчим часом для підтвердження та деталей доставки.</p>
+        <p class="note" style="max-width:280px;" id="successNote">Дякуємо за замовлення. Наш менеджер зв'яжеться з вами найближчим часом для підтвердження та деталей доставки.</p>
         <button class="btn btn-ghost" onclick="closeCart()">Продовжити покупки</button>
       </div>
     </div>
@@ -685,6 +686,7 @@
       `<div class="row total"><span>Разом</span><span>${fmt(cartTotal())}</span></div>`;
     showView('checkout');
     loadBranchesForCurrentSelection();
+    onPaymentChange();
   }
 
   // ---------- Nova Poshta integration (cities / branches / postomats) ----------
@@ -753,6 +755,17 @@
 
   function onDeliveryChange(){ loadBranchesForCurrentSelection(); }
 
+  function onPaymentChange(){
+    const sel = document.getElementById('paymentSelect');
+    const note = document.getElementById('paymentNote');
+    if(!sel || !note) return;
+    if(sel.value === 'Повна оплата на картку'){
+      note.innerHTML = '🚚 <b>Безкоштовна доставка</b> при повній оплаті карткою — менеджер надішле реквізити для оплати після підтвердження замовлення.';
+    } else {
+      note.innerHTML = '⚠️ При оплаті при отриманні Нова Пошта стягує окрему комісію за накладений платіж (сплачується при отриманні, понад вартість товару).';
+    }
+  }
+
   function loadBranchesForCurrentSelection(){
     const delivery = document.getElementById('deliverySelect').value;
     const label = document.getElementById('branchLabel');
@@ -812,6 +825,7 @@
     const orderPayload = {
       name: fd.get('name') || '',
       phone: fd.get('phone') || '',
+      email: fd.get('email') || '',
       city: fd.get('city') || '',
       delivery: fd.get('delivery') || '',
       branch: fd.get('branch') || '',
@@ -844,6 +858,12 @@
           'currency': 'UAH',
           'transaction_id': 'SS-' + Date.now()
         });
+      }
+      const successNote = document.getElementById('successNote');
+      if(successNote){
+        successNote.textContent = orderPayload.email
+          ? `Дякуємо за замовлення. Ми надіслали підтвердження на ${orderPayload.email}, а менеджер зв'яжеться з вами найближчим часом для деталей доставки.`
+          : `Дякуємо за замовлення. Наш менеджер зв'яжеться з вами найближчим часом для підтвердження та деталей доставки.`;
       }
       cart = {}; saveCart(); renderCart();
       form.reset();

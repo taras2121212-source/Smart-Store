@@ -1411,7 +1411,7 @@
     tbody.innerHTML = list.map(o => `
       <tr>
         <td data-label="Дата">${esc(formatOrderDate(o.createdAt))}</td>
-        <td data-label="Клієнт"><div class="nm">${esc(o.name)}</div><div class="cat">${esc(o.phone)}</div></td>
+        <td data-label="Клієнт"><div class="nm">${esc(o.name)}</div><div class="cat">${esc(o.phone)}</div>${o.email ? `<div class="cat">${esc(o.email)}</div>` : ''}</td>
         <td data-label="Товари" style="max-width:260px; white-space:pre-wrap; font-size:12px;">${esc(o.items)}</td>
         <td data-label="Сума" class="price-cell">${esc(o.total)}</td>
         <td data-label="Доставка" style="font-size:12px;">${esc(o.delivery)}${o.branch ? '<br>' + esc(o.branch) : ''}<br>${esc(o.city)}</td>
