@@ -81,6 +81,17 @@
   <div>🛡️&nbsp;Гарантія на техніку</div>
 </div>
 
+<section class="block" id="topSalesSection" style="display:none;">
+  <div class="section-head">
+    <div>
+      <span class="tag-mono eyebrow" style="margin-bottom:10px; display:inline-flex;">🔥 Хіти продажів</span>
+      <h2>Топ продажів</h2>
+    </div>
+    <p>Товари, які клієнти обирають найчастіше.</p>
+  </div>
+  <div class="prod-grid" id="topSalesGrid"></div>
+</section>
+
 <section class="block" id="categories">
   <div class="section-head">
     <div>
@@ -468,6 +479,7 @@
       buildFilters();
       buildFacets();
       render();
+      renderTopSales();
       renderCart();
       handleDeepLink();
     })
@@ -576,32 +588,44 @@
     return list;
   }
 
+  function productCardHtml(p){
+    const inStock = p.available;
+    return `
+    <a class="prod-card" href="product/${p.id}-${slugify(p.name)}.html">
+      <div class="prod-media">
+        <span class="prod-badge ${inStock?'':'out'}">${inStock?'В наявності':'Немає в наявності'}</span>
+        ${saleBadgeHtml(p)}
+        <img src="${esc(p.img)}" alt="${esc(p.name)}" loading="lazy"
+             onerror="this.style.display='none'; this.parentNode.insertAdjacentHTML('beforeend','<div style=&quot;font-size:40px&quot;>${CAT_ICONS[p.cat]||'📦'}</div>')">
+      </div>
+      <div class="prod-body">
+        <div class="prod-cat">${esc(p.cat)}</div>
+        <div class="prod-name">${esc(p.name)}</div>
+        <div class="prod-spec">${esc(p.spec || '')}</div>
+        <div class="prod-foot">
+          ${priceBlockHtml(p)}
+          <button class="add-btn" onclick="event.preventDefault(); event.stopPropagation(); addToCart(${p.id})">Купити +</button>
+        </div>
+      </div>
+    </a>`;
+  }
+
+  function renderTopSales(){
+    const section = document.getElementById('topSalesSection');
+    const top = products
+      .filter(p => p.topSale)
+      .sort((a,b) => (a.topOrder||0) - (b.topOrder||0));
+    if(!top.length){ section.style.display = 'none'; return; }
+    section.style.display = '';
+    document.getElementById('topSalesGrid').innerHTML = top.map(productCardHtml).join('');
+  }
+
   function render(){
     const list = filtered();
     const grid = document.getElementById('prodGrid');
     if(list.length === 0){ grid.innerHTML = '<div class="empty-note">У цій категорії поки немає товарів.</div>'; }
     else {
-      grid.innerHTML = list.slice(0, visible).map(p => {
-        const inStock = p.available;
-        return `
-        <a class="prod-card" href="product/${p.id}-${slugify(p.name)}.html">
-          <div class="prod-media">
-            <span class="prod-badge ${inStock?'':'out'}">${inStock?'В наявності':'Немає в наявності'}</span>
-            ${saleBadgeHtml(p)}
-            <img src="${esc(p.img)}" alt="${esc(p.name)}" loading="lazy"
-                 onerror="this.style.display='none'; this.parentNode.insertAdjacentHTML('beforeend','<div style=&quot;font-size:40px&quot;>${CAT_ICONS[p.cat]||'📦'}</div>')">
-          </div>
-          <div class="prod-body">
-            <div class="prod-cat">${esc(p.cat)}</div>
-            <div class="prod-name">${esc(p.name)}</div>
-            <div class="prod-spec">${esc(p.spec || '')}</div>
-            <div class="prod-foot">
-              ${priceBlockHtml(p)}
-              <button class="add-btn" onclick="event.preventDefault(); event.stopPropagation(); addToCart(${p.id})">Купити +</button>
-            </div>
-          </div>
-        </a>`;
-      }).join('');
+      grid.innerHTML = list.slice(0, visible).map(productCardHtml).join('');
     }
     const row = document.getElementById('loadMoreRow');
     row.style.display = list.length > visible ? 'flex' : 'none';

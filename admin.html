@@ -71,6 +71,17 @@
   .img-gallery-ctrls button.del:hover{ color:var(--red); border-color:var(--red); }
   .img-gallery-label{ font-size:9.5px; color:var(--muted); text-align:center; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .img-gallery-empty{ font-size:12.5px; color:var(--muted); }
+  .topsale-panel{ background:var(--panel-alt); border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:16px; }
+  .topsale-panel-head{ font-size:13px; font-weight:600; color:var(--text); margin-bottom:10px; }
+  .topsale-list{ display:flex; flex-direction:column; gap:6px; }
+  .topsale-row{ display:flex; align-items:center; gap:10px; background:var(--panel); border-radius:8px; padding:6px 8px; }
+  .topsale-row .thumb{ width:36px; height:36px; flex:none; }
+  .topsale-row .nm{ flex:1; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .topsale-row .ctrls{ display:flex; gap:4px; flex:none; }
+  .topsale-row .ctrls button{ width:24px; height:22px; border-radius:5px; border:1px solid var(--line); background:var(--panel-alt); color:var(--muted); cursor:pointer; font-size:11px; }
+  .topsale-row .ctrls button:hover{ color:var(--text); }
+  .topsale-row .ctrls button:disabled{ opacity:.3; cursor:not-allowed; }
+  .topsale-row .ctrls button.del:hover{ color:var(--red); border-color:var(--red); }
 
   .toolbar{ display:flex; gap:12px; flex-wrap:wrap; margin-bottom:18px; align-items:center; }
   .toolbar input[type=search], .toolbar select{
@@ -206,6 +217,11 @@
       <span class="count-tag" id="countTag"></span>
     </div>
 
+    <div class="topsale-panel" id="topSalePanel" style="display:none;">
+      <div class="topsale-panel-head">🔥 Топ продажів — порядок показу на сайті</div>
+      <div class="topsale-list" id="topSaleList"></div>
+    </div>
+
     <table>
       <thead>
         <tr><th>Товар</th><th>Ціна</th><th>Наявність</th><th></th></tr>
@@ -339,6 +355,7 @@
       </div>
       <div class="field"><label>Опис товару</label><textarea id="fSpec" placeholder="Повний опис товару для картки"></textarea></div>
       <div class="field checkline"><input type="checkbox" id="fAvailable" checked><label for="fAvailable" style="font-size:13px; color:var(--text);">Товар у наявності</label></div>
+      <div class="field checkline"><input type="checkbox" id="fTopSale"><label for="fTopSale" style="font-size:13px; color:var(--text);">🔥 Показувати в «Топ продажів» на сайті</label></div>
       <div class="hint" id="idHint"></div>
       <div class="modal-actions">
         <button type="button" class="btn" onclick="closeModal()">Скасувати</button>
@@ -544,6 +561,7 @@
     buildCatFilter();
     buildProductCatSelect();
     renderTable();
+    renderTopSalesPanel();
     renderCategoriesTable();
     renderReviewsTable();
   }
@@ -607,6 +625,46 @@
     });
   }
 
+  // ---------- top sales panel (manages order of products.topSale === true) ----------
+  function renderTopSalesPanel(){
+    const panel = document.getElementById('topSalePanel');
+    const list = document.getElementById('topSaleList');
+    const marked = products.filter(p => p.topSale).sort((a,b) => (a.topOrder||0) - (b.topOrder||0));
+    if(!marked.length){ panel.style.display = 'none'; return; }
+    panel.style.display = '';
+    list.innerHTML = marked.map((p, i) => `
+      <div class="topsale-row">
+        <div class="thumb"><img src="${esc(p.img)}" alt="" onerror="this.style.display='none'"></div>
+        <div class="nm">${esc(p.name)}</div>
+        <div class="ctrls">
+          <button type="button" title="Вище" onclick="moveTopSale(${p.id},-1)" ${i===0?'disabled':''}>▲</button>
+          <button type="button" title="Нижче" onclick="moveTopSale(${p.id},1)" ${i===marked.length-1?'disabled':''}>▼</button>
+          <button type="button" class="del" title="Прибрати з Топ продажів" onclick="removeFromTop(${p.id})">✕</button>
+        </div>
+      </div>`).join('');
+  }
+
+  function moveTopSale(id, dir){
+    const marked = products.filter(p => p.topSale).sort((a,b) => (a.topOrder||0) - (b.topOrder||0));
+    const idx = marked.findIndex(p => p.id === id);
+    const targetIdx = idx + dir;
+    if(idx === -1 || targetIdx < 0 || targetIdx >= marked.length) return;
+    const tmp = marked[idx];
+    marked[idx] = marked[targetIdx];
+    marked[targetIdx] = tmp;
+    marked.forEach((p, i) => { p.topOrder = i; });
+    saveDraft();
+    renderTopSalesPanel();
+  }
+
+  function removeFromTop(id){
+    const p = products.find(pr => pr.id === id);
+    if(p){ p.topSale = false; }
+    saveDraft();
+    renderTopSalesPanel();
+    renderTable();
+  }
+
   function renderTable(){
     const list = filteredProducts();
     const body = document.getElementById('tbody');
@@ -663,6 +721,7 @@
     saveDraft();
     buildCatFilter();
     renderTable();
+    renderTopSalesPanel();
     renderCategoriesTable();
     showToast('Товар видалено (не забудьте зберегти файл)');
   }
@@ -689,6 +748,7 @@
       document.getElementById('fGroup').value = p.group || '';
       document.getElementById('fSpec').value = p.spec || '';
       document.getElementById('fAvailable').checked = !!p.available;
+      document.getElementById('fTopSale').checked = !!p.topSale;
       document.getElementById('idHint').textContent = 'ID товару: ' + p.id;
       editImages = productImagesOf(p);
       document.getElementById('imgFileHint').textContent = editImages.length ? 'Поточні фото збережено. Додайте ще файли, приберіть чи переставте зайві.' : 'Оберіть один або кілька файлів фото.';
@@ -791,6 +851,11 @@
   function closeModal(){ document.getElementById('modalOverlay').classList.remove('open'); }
   document.getElementById('modalOverlay').addEventListener('click', e=>{ if(e.target.id==='modalOverlay') closeModal(); });
 
+  function nextTopOrder(){
+    const marked = products.filter(p => p.topSale);
+    return marked.length ? Math.max(...marked.map(p => p.topOrder || 0)) + 1 : 0;
+  }
+
   function saveProduct(e){
     e.preventDefault();
     const idVal = document.getElementById('fId').value;
@@ -806,18 +871,21 @@
     const img = images[0] || '';
     const spec = document.getElementById('fSpec').value.trim();
     const available = document.getElementById('fAvailable').checked;
+    const topSale = document.getElementById('fTopSale').checked;
 
     if(idVal){
       const p = products.find(pr=>pr.id===parseInt(idVal));
       if(p){
-        Object.assign(p, {name, price, cat, brand, group, img, images, spec, available});
+        Object.assign(p, {name, price, cat, brand, group, img, images, spec, available, topSale});
         if(oldPrice){ p.oldPrice = oldPrice; } else { delete p.oldPrice; }
+        if(topSale && p.topOrder === undefined) p.topOrder = nextTopOrder();
       }
       showToast('Товар оновлено');
     } else {
       const newId = products.length ? Math.max(...products.map(p=>p.id)) + 1 : 1;
-      const newP = { id:newId, name, price, cur:'UAH', cat, brand, group, img, images, available, spec };
+      const newP = { id:newId, name, price, cur:'UAH', cat, brand, group, img, images, available, spec, topSale };
       if(oldPrice) newP.oldPrice = oldPrice;
+      if(topSale) newP.topOrder = nextTopOrder();
       products.push(newP);
       showToast('Товар додано');
     }
@@ -825,6 +893,7 @@
     buildCatFilter();
     buildProductCatSelect();
     renderTable();
+    renderTopSalesPanel();
     closeModal();
   }
 
@@ -842,6 +911,7 @@
         buildCatFilter();
         buildProductCatSelect();
         renderTable();
+        renderTopSalesPanel();
         renderCategoriesTable();
         showToast('JSON завантажено');
       }catch(err){
