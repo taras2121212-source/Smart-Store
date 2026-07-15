@@ -26,6 +26,31 @@ CAT_ICONS = {
     "Навушники": "🎧", "Бездротова зарядка": "🔋", "Автоаксесуари": "🚗", "Інше": "📦",
 }
 
+# Невеликі inline SVG-іконки (набір Lucide, https://lucide.dev — ISC license) для карток
+# товарів: іконка кошика на кнопці "Купити", check/x в бейджі наявності, "%" в бейджі знижки.
+# Вбудовані напряму (а не через зовнішній CDN-скрипт), щоб іконки завжди рендерились одразу,
+# без додаткового мережевого запиту чи "миготіння" при завантаженні сторінки.
+ICON_CART = ('<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" '
+             'fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+             '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/>'
+             '<path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>')
+ICON_CHECK = ('<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" '
+              'fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">'
+              '<path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 '
+              '4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m9 12 2 2 4-4"/></svg>')
+ICON_XCIRCLE = ('<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" '
+                'fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">'
+                '<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>')
+ICON_PERCENT = ('<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" '
+                'fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">'
+                '<line x1="19" x2="5" y1="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>')
+
+def stock_badge_html(in_stock: bool) -> str:
+    icon = ICON_CHECK if in_stock else ICON_XCIRCLE
+    text = "В наявності" if in_stock else "Немає в наявності"
+    cls = "" if in_stock else "out"
+    return f'<span class="prod-badge {cls}">{icon}{text}</span>'
+
 UA_MAP = {
     'а': 'a', 'б': 'b', 'в': 'v', 'г': 'h', 'ґ': 'g', 'д': 'd', 'е': 'e', 'є': 'ie',
     'ж': 'zh', 'з': 'z', 'и': 'y', 'і': 'i', 'ї': 'i', 'й': 'i', 'к': 'k', 'л': 'l',
@@ -60,7 +85,7 @@ def discount_pct(p):
 
 def sale_badge_html(p):
     d = discount_pct(p)
-    return f'<span class="sale-badge">-{d}%</span>' if d > 0 else ""
+    return f'<span class="sale-badge">{ICON_PERCENT}-{d}%</span>' if d > 0 else ""
 
 
 def price_block_html(p):
@@ -518,7 +543,7 @@ def render_product_page(p, products, cat_slugs):
             cards.append(f"""
         <a class="prod-card" href="{r['id']}-{slugify(r['name'])}.html">
           <div class="prod-media">
-            <span class="prod-badge {'' if r_in else 'out'}">{'В наявності' if r_in else 'Немає в наявності'}</span>
+            {stock_badge_html(r_in)}
             {sale_badge_html(r)}
             <img src="{esc(r['img'])}" alt="{esc(r['name'])}" loading="lazy"
                  onerror="this.style.display='none'; this.parentNode.insertAdjacentHTML('beforeend','<div style=&quot;font-size:40px&quot;>{CAT_ICONS.get(r['cat'],'📦')}</div>')">
@@ -529,7 +554,7 @@ def render_product_page(p, products, cat_slugs):
             <div class="prod-spec">{esc((r.get('spec') or '')[:90])}</div>
             <div class="prod-foot">
               {price_block_html(r)}
-              <button class="add-btn" onclick="event.preventDefault(); event.stopPropagation(); pageAddToCart({r['id']})">Купити +</button>
+              <button class="add-btn" onclick="event.preventDefault(); event.stopPropagation(); pageAddToCart({r['id']})">{ICON_CART}Купити</button>
             </div>
           </div>
         </a>""")
@@ -644,7 +669,7 @@ def render_category_page(cat, products_in_cat, all_counts, cat_slugs):
         cards.append(f"""
         <a class="prod-card" data-price="{r['price']}" data-available="{1 if r_in else 0}" data-brand="{brand}" data-name="{esc(r['name'])}" href="../product/{r['id']}-{slugify(r['name'])}.html">
           <div class="prod-media">
-            <span class="prod-badge {'' if r_in else 'out'}">{'В наявності' if r_in else 'Немає в наявності'}</span>
+            {stock_badge_html(r_in)}
             {sale_badge_html(r)}
             <img src="{esc(r['img'])}" alt="{esc(r['name'])}" loading="lazy"
                  onerror="this.style.display='none'; this.parentNode.insertAdjacentHTML('beforeend','<div style=&quot;font-size:40px&quot;>{CAT_ICONS.get(r['cat'],'📦')}</div>')">
@@ -655,7 +680,7 @@ def render_category_page(cat, products_in_cat, all_counts, cat_slugs):
             <div class="prod-spec">{esc((r.get('spec') or '')[:90])}</div>
             <div class="prod-foot">
               {price_block_html(r)}
-              <button class="add-btn" onclick="event.preventDefault(); event.stopPropagation(); pageAddToCart({r['id']})">Купити +</button>
+              <button class="add-btn" onclick="event.preventDefault(); event.stopPropagation(); pageAddToCart({r['id']})">{ICON_CART}Купити</button>
             </div>
           </div>
         </a>""")

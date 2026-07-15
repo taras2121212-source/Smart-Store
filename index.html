@@ -250,11 +250,15 @@
           <div class="np-hint" id="paymentNote"></div>
         </div>
         <div class="field"><label>Коментар до замовлення</label><textarea name="comment" placeholder="Побажання, модель телефону тощо"></textarea></div>
+        <div class="field" style="flex-direction:row; align-items:flex-start; gap:8px;">
+          <input type="checkbox" name="noCall" id="noCallCheck" style="margin-top:3px; width:16px; height:16px; flex:none;" onchange="onNoCallChange()">
+          <label for="noCallCheck" style="font-weight:400; cursor:pointer;">Не дзвонити для підтвердження замовлення</label>
+        </div>
         <input type="hidden" name="order" id="orderField">
         <input type="hidden" name="total" id="totalField">
         <div class="order-summary" id="orderSummary"></div>
         <button type="submit" class="btn btn-primary" id="submitOrderBtn" style="width:100%; justify-content:center; margin-top:14px;">Підтвердити замовлення</button>
-        <div class="note" style="margin-top:10px;">Натискаючи кнопку, ви погоджуєтесь, що менеджер зв'яжеться з вами для підтвердження.</div>
+        <div class="note" style="margin-top:10px;" id="orderAgreementNote">Натискаючи кнопку, ви погоджуєтесь, що менеджер зв'яжеться з вами для підтвердження.</div>
       </form>
     </div>
 
@@ -427,6 +431,19 @@
 
   const fmt = n => n.toLocaleString('uk-UA') + ' ₴';
 
+  // Невеликі inline SVG-іконки (Lucide, https://lucide.dev — ISC license) для карток товарів:
+  // кошик на кнопці "Купити", check/x у бейджі наявності, "%" у бейджі знижки. Вбудовані напряму
+  // в код, а не через зовнішній CDN-скрипт, — рендеряться миттєво, без мережевого запиту/миготіння.
+  const ICON_CART = '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>';
+  const ICON_CHECK = '<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m9 12 2 2 4-4"/></svg>';
+  const ICON_XCIRCLE = '<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>';
+  const ICON_PERCENT = '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="19" x2="5" y1="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>';
+  function stockBadgeHtml(inStock, style){
+    const icon = inStock ? ICON_CHECK : ICON_XCIRCLE;
+    const text = inStock ? 'В наявності' : 'Немає в наявності';
+    return `<span class="prod-badge ${inStock?'':'out'}"${style?` style="${style}"`:''}>${icon}${text}</span>`;
+  }
+
   // ---------- discounts ----------
   function discountPct(p){
     if(!p.oldPrice || Number(p.oldPrice) <= Number(p.price)) return 0;
@@ -434,7 +451,7 @@
   }
   function saleBadgeHtml(p){
     const d = discountPct(p);
-    return d > 0 ? `<span class="sale-badge">-${d}%</span>` : '';
+    return d > 0 ? `<span class="sale-badge">${ICON_PERCENT}-${d}%</span>` : '';
   }
   function priceBlockHtml(p){
     const d = discountPct(p);
@@ -593,7 +610,7 @@
     return `
     <a class="prod-card" href="product/${p.id}-${slugify(p.name)}.html">
       <div class="prod-media">
-        <span class="prod-badge ${inStock?'':'out'}">${inStock?'В наявності':'Немає в наявності'}</span>
+        ${stockBadgeHtml(inStock)}
         ${saleBadgeHtml(p)}
         <img src="${esc(p.img)}" alt="${esc(p.name)}" loading="lazy"
              onerror="this.style.display='none'; this.parentNode.insertAdjacentHTML('beforeend','<div style=&quot;font-size:40px&quot;>${CAT_ICONS[p.cat]||'📦'}</div>')">
@@ -604,7 +621,7 @@
         <div class="prod-spec">${esc(p.spec || '')}</div>
         <div class="prod-foot">
           ${priceBlockHtml(p)}
-          <button class="add-btn" onclick="event.preventDefault(); event.stopPropagation(); addToCart(${p.id})">Купити +</button>
+          <button class="add-btn" onclick="event.preventDefault(); event.stopPropagation(); addToCart(${p.id})">${ICON_CART}Купити</button>
         </div>
       </div>
     </a>`;
@@ -838,6 +855,16 @@
       });
   }
 
+  function onNoCallChange(){
+    const checked = document.getElementById('noCallCheck').checked;
+    const note = document.getElementById('orderAgreementNote');
+    if(note){
+      note.textContent = checked
+        ? 'Натискаючи кнопку, ви погоджуєтесь з умовами замовлення. Менеджер не дзвонитиме для підтвердження — замовлення буде оброблено без дзвінка.'
+        : 'Натискаючи кнопку, ви погоджуєтесь, що менеджер зв\'яжеться з вами для підтвердження.';
+    }
+  }
+
   // ---------- order submit ----------
   // Замовлення надсилається одразу у двох напрямках:
   // 1) Netlify Forms — щоб надходили email-сповіщення (як і раніше);
@@ -851,6 +878,7 @@
     btn.disabled = true; btn.textContent = 'Надсилаємо…';
 
     const fd = new FormData(form);
+    const noCall = fd.get('noCall') === 'on';
     const orderPayload = {
       name: fd.get('name') || '',
       phone: fd.get('phone') || '',
@@ -860,6 +888,7 @@
       branch: fd.get('branch') || '',
       payment: fd.get('payment') || '',
       comment: fd.get('comment') || '',
+      noCall,
       items: fd.get('order') || '',
       total: fd.get('total') || '',
       itemsDetailed: lastOrderItemsDetailed
@@ -891,13 +920,20 @@
       }
       const successNote = document.getElementById('successNote');
       if(successNote){
-        successNote.textContent = orderPayload.email
-          ? `Дякуємо за замовлення. Ми надіслали підтвердження на ${orderPayload.email}, а менеджер зв'яжеться з вами найближчим часом для деталей доставки.`
-          : `Дякуємо за замовлення. Наш менеджер зв'яжеться з вами найближчим часом для підтвердження та деталей доставки.`;
+        if(noCall){
+          successNote.textContent = orderPayload.email
+            ? `Дякуємо за замовлення. Ми надіслали підтвердження на ${orderPayload.email}. Менеджер не дзвонитиме — замовлення обробимо без дзвінка.`
+            : `Дякуємо за замовлення. Менеджер не дзвонитиме — замовлення обробимо без дзвінка.`;
+        } else {
+          successNote.textContent = orderPayload.email
+            ? `Дякуємо за замовлення. Ми надіслали підтвердження на ${orderPayload.email}, а менеджер зв'яжеться з вами найближчим часом для деталей доставки.`
+            : `Дякуємо за замовлення. Наш менеджер зв'яжеться з вами найближчим часом для підтвердження та деталей доставки.`;
+        }
       }
       cart = {}; saveCart(); renderCart();
       lastOrderItemsDetailed = [];
       form.reset();
+      onNoCallChange();
       selectedCityRef = null;
       loadBranchesForCurrentSelection();
       showView('success');
@@ -919,7 +955,7 @@
     const brandRow = p._brand && p._brand !== 'Інше' ? `<div>Бренд: <b>${esc(p._brand)}</b></div>` : '';
     document.getElementById('productBody').innerHTML = `
       <div class="product-media-lg">
-        <span class="prod-badge ${inStock?'':'out'}" style="position:absolute; top:12px; left:12px;">${inStock?'В наявності':'Немає в наявності'}</span>
+        ${stockBadgeHtml(inStock, 'position:absolute; top:12px; left:12px;')}
         ${saleBadgeHtml(p)}
         <img src="${esc(p.img)}" alt="${esc(p.name)}"
              onerror="this.style.display='none'; this.parentNode.insertAdjacentHTML('beforeend','<div style=&quot;font-size:56px&quot;>${CAT_ICONS[p.cat]||'📦'}</div>')">

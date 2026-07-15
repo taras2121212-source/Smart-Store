@@ -93,7 +93,9 @@ function orderConfirmationHtml(order) {
   return `
     <div style="font-family:Arial,sans-serif; max-width:520px; margin:0 auto; color:#17181c;">
       <h2 style="margin-bottom:4px;">Замовлення №${escapeHtml(order.id)} прийнято</h2>
-      <p style="color:#555;">Дякуємо за замовлення в SMART STORE! Менеджер зв'яжеться з вами найближчим часом для підтвердження та деталей доставки.</p>
+      <p style="color:#555;">${order.noCall
+        ? 'Дякуємо за замовлення в SMART STORE! Ви обрали не дзвонити для підтвердження — ми обробимо замовлення без дзвінка.'
+        : 'Дякуємо за замовлення в SMART STORE! Менеджер зв\'яжеться з вами найближчим часом для підтвердження та деталей доставки.'}</p>
       <h3 style="margin-bottom:6px;">Товари</h3>
       ${photos || `<p style="white-space:pre-wrap; font-size:14px;">${itemsHtml}</p>`}
       <p style="font-size:16px;"><b>Разом: ${escapeHtml(order.total)}</b></p>
@@ -253,6 +255,7 @@ exports.handler = async (event) => {
         branch: String(body.branch || '').slice(0, 300),
         payment: String(body.payment || '').slice(0, 100),
         comment: String(body.comment || '').slice(0, 1000),
+        noCall: Boolean(body.noCall),
         items: String(body.items || '').slice(0, 4000),
         total: String(body.total || '').slice(0, 100),
         itemsDetailed: sanitizeItemsDetailed(body.itemsDetailed),
