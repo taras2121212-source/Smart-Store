@@ -205,6 +205,10 @@
     document.getElementById('reviewSuccessView').style.display = 'none';
     resetStars();
   }
+  // Лист "замовлення виконано" веде на reviews.html?leave=1 — одразу відкриваємо форму відгуку.
+  if(new URLSearchParams(location.search).get('leave') === '1'){
+    openReview();
+  }
   function closeReview(){ document.getElementById('reviewOverlay').classList.remove('open'); }
   document.getElementById('reviewOverlay').addEventListener('click', function(e){ if(e.target.id === 'reviewOverlay') closeReview(); });
 

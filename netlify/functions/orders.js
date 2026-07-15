@@ -50,15 +50,52 @@ function escapeHtml(s) {
   }[c]));
 }
 
+// Перевіряє, що фото — це http(s)-посилання (щоб не підсунути щось на кшталт
+// javascript:/data: в атрибут src листа).
+function isSafeImageUrl(u) {
+  return typeof u === 'string' && /^https?:\/\//i.test(u);
+}
+
+// Приводить масив товарів кошика (з фото) до безпечного вигляду для збереження й листа.
+// Обмежуємо кількість позицій і довжину полів, щоб не роздувати сховище/листи.
+function sanitizeItemsDetailed(items) {
+  if (!Array.isArray(items)) return [];
+  return items.slice(0, 60).map((it) => ({
+    name: String((it && it.name) || '').slice(0, 200),
+    qty: Math.max(1, Math.min(9999, parseInt((it && it.qty), 10) || 1)),
+    price: String((it && it.price) || '').slice(0, 40),
+    img: isSafeImageUrl(it && it.img) ? String(it.img).slice(0, 500) : '',
+  }));
+}
+
+function orderItemsPhotosHtml(order) {
+  const items = Array.isArray(order.itemsDetailed) ? order.itemsDetailed : [];
+  if (items.length === 0) return '';
+  const rows = items.map((it) => `
+    <tr>
+      <td style="padding:8px 0; width:64px;">
+        ${it.img
+          ? `<img src="${escapeHtml(it.img)}" alt="${escapeHtml(it.name)}" width="56" height="56" style="width:56px; height:56px; object-fit:cover; border-radius:8px; display:block; border:1px solid #eee;">`
+          : `<div style="width:56px; height:56px; border-radius:8px; background:#f4f4f2;"></div>`}
+      </td>
+      <td style="padding:8px 0 8px 12px; font-size:14px; vertical-align:middle;">
+        <div>${escapeHtml(it.name)}</div>
+        <div style="color:#777;">${it.qty} шт × ${escapeHtml(it.price)}</div>
+      </td>
+    </tr>`).join('');
+  return `<table role="presentation" style="width:100%; border-collapse:collapse; margin:8px 0 4px;">${rows}</table>`;
+}
+
 function orderConfirmationHtml(order) {
-  const itemsHtml = escapeHtml(order.items).replace(/\n/g, '<br>');
+  const photos = orderItemsPhotosHtml(order);
+  const itemsHtml = photos ? '' : escapeHtml(order.items).replace(/\n/g, '<br>');
   const branchLine = order.branch ? `<br>${escapeHtml(order.branch)}` : '';
   return `
     <div style="font-family:Arial,sans-serif; max-width:520px; margin:0 auto; color:#17181c;">
       <h2 style="margin-bottom:4px;">Замовлення №${escapeHtml(order.id)} прийнято</h2>
       <p style="color:#555;">Дякуємо за замовлення в SMART STORE! Менеджер зв'яжеться з вами найближчим часом для підтвердження та деталей доставки.</p>
       <h3 style="margin-bottom:6px;">Товари</h3>
-      <p style="white-space:pre-wrap; font-size:14px;">${itemsHtml}</p>
+      ${photos || `<p style="white-space:pre-wrap; font-size:14px;">${itemsHtml}</p>`}
       <p style="font-size:16px;"><b>Разом: ${escapeHtml(order.total)}</b></p>
       <h3 style="margin-bottom:6px;">Доставка</h3>
       <p style="font-size:14px;">${escapeHtml(order.delivery)}${branchLine}<br>м. ${escapeHtml(order.city)}</p>
@@ -143,6 +180,51 @@ async function sendConfirmationEmail(order) {
   }
 }
 
+function reviewRequestEmailHtml(order) {
+  return `
+    <div style="font-family:Arial,sans-serif; max-width:520px; margin:0 auto; color:#17181c;">
+      <h2 style="margin-bottom:4px;">Замовлення №${escapeHtml(order.id)} виконано 🎉</h2>
+      <p style="color:#555;">Дякуємо, що обрали SMART STORE! Сподіваємось, покупка вас порадувала.</p>
+      <p style="font-size:14px; color:#555;">Нам дуже важлива ваша думка — будемо вдячні за пару хвилин, щоб оцінити
+      роботу магазину та залишити відгук. Це допомагає нам ставати кращими, а іншим покупцям — обирати правильно.</p>
+      <p style="margin:24px 0;">
+        <a href="https://smartstoreua.com/reviews.html?leave=1#reviews" style="background:#17181c; color:#fff; text-decoration:none; padding:12px 22px; border-radius:10px; font-size:15px; display:inline-block;">Залишити відгук</a>
+      </p>
+      <p style="color:#999; font-size:12px; margin-top:24px;">SMART STORE</p>
+    </div>`;
+}
+
+// Best-effort: надсилається один раз, коли замовлення переходить у статус "done".
+async function sendReviewRequestEmail(order) {
+  if (!order.email) return false;
+  const apiKey = process.env.RESEND_API_KEY;
+  const fromAddr = process.env.NOTIFY_FROM_EMAIL;
+  if (!apiKey || !fromAddr) return false;
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: fromAddr,
+        to: order.email,
+        subject: `Дякуємо за покупку — залиште відгук про SMART STORE`,
+        html: reviewRequestEmailHtml(order),
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    return res.ok;
+  } catch (e) {
+    return false;
+  }
+}
+
 exports.handler = async (event) => {
   try {
     const store = getOrdersStore();
@@ -162,6 +244,7 @@ exports.handler = async (event) => {
         createdAt: new Date().toISOString(),
         status: 'new',
         trackingNumber: '',
+        reviewEmailSent: false,
         name: String(body.name || '').slice(0, 200),
         phone: String(body.phone || '').slice(0, 60),
         email: String(body.email || '').slice(0, 200),
@@ -172,6 +255,7 @@ exports.handler = async (event) => {
         comment: String(body.comment || '').slice(0, 1000),
         items: String(body.items || '').slice(0, 4000),
         total: String(body.total || '').slice(0, 100),
+        itemsDetailed: sanitizeItemsDetailed(body.itemsDetailed),
       };
 
       await store.setJSON(id, order);
@@ -203,20 +287,37 @@ exports.handler = async (event) => {
       const existing = await store.get(body.id, { type: 'json' });
       if (!existing) return json(404, { error: 'Замовлення не знайдено' });
 
-      if (body.status) existing.status = String(body.status).slice(0, 40);
+      const statusBefore = existing.status;
+      const statusExplicitlySet = typeof body.status === 'string' && body.status;
+      if (statusExplicitlySet) existing.status = String(body.status).slice(0, 40);
 
       let emailSent = false;
+      let reviewEmailSent = false;
+
       if (typeof body.trackingNumber === 'string') {
         const newTracking = body.trackingNumber.trim().slice(0, 100);
         const trackingChanged = newTracking && newTracking !== existing.trackingNumber;
         existing.trackingNumber = newTracking;
         if (trackingChanged) {
           emailSent = await sendTrackingEmail(existing);
+          // Прикріплення ТТН автоматично переводить замовлення в статус "В дорозі",
+          // якщо адмін в цьому ж запиті не встановив статус вручну і замовлення
+          // ще не позначене як виконане/скасоване.
+          if (!statusExplicitlySet && statusBefore !== 'done' && statusBefore !== 'cancelled') {
+            existing.status = 'in_transit';
+          }
         }
       }
 
+      // Коли замовлення переходить у статус "Виконано" — надсилаємо клієнту лист
+      // з проханням залишити відгук. Лист надсилається лише один раз на замовлення.
+      if (existing.status === 'done' && statusBefore !== 'done' && !existing.reviewEmailSent) {
+        reviewEmailSent = await sendReviewRequestEmail(existing);
+        existing.reviewEmailSent = reviewEmailSent;
+      }
+
       await store.setJSON(body.id, existing);
-      return json(200, { ok: true, emailSent });
+      return json(200, { ok: true, emailSent, reviewEmailSent, status: existing.status });
     }
 
     if (event.httpMethod === 'DELETE') {

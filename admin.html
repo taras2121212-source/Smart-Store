@@ -304,9 +304,11 @@
     <div class="notice" id="ordersNotice">
       Замовлення, які клієнти оформлюють на сайті, надходять сюди автоматично (через Netlify Function) —
       нічого вручну завантажувати не потрібно. Змінюйте статус замовлення у випадаючому списку
-      (Нове → В обробці → Виконано, або Скасовано) та видаляйте оброблені, якщо вони більше не потрібні.
-      Поле <b>ТТН</b> дозволяє вписати номер накладної служби доставки — після збереження, якщо клієнт
-      вказав email при замовленні, йому автоматично надійде лист з номером ТТН.
+      (Нове → В обробці → В дорозі → Виконано, або Скасовано) та видаляйте оброблені, якщо вони більше не потрібні.
+      Поле <b>ТТН</b> дозволяє вписати номер накладної служби доставки — після збереження статус автоматично
+      зміниться на «В дорозі», і якщо клієнт вказав email при замовленні, йому надійде лист з номером ТТН.
+      Коли статус змінюється на <b>«Виконано»</b>, клієнту (якщо вказав email) автоматично надсилається лист
+      з проханням оцінити магазин і залишити відгук — лист надсилається лише один раз на замовлення.
     </div>
 
     <div class="toolbar">
@@ -314,6 +316,7 @@
         <option value="Всі">Статус: всі</option>
         <option value="new">Нові</option>
         <option value="processing">В обробці</option>
+        <option value="in_transit">В дорозі</option>
         <option value="done">Виконані</option>
         <option value="cancelled">Скасовані</option>
       </select>
@@ -1444,7 +1447,7 @@
   // ---------- orders (via Netlify Function /.netlify/functions/orders) ----------
   let orders = [];
   const ORDERS_ENDPOINT = '/.netlify/functions/orders';
-  const STATUS_LABELS = { new:'Нове', processing:'В обробці', done:'Виконано', cancelled:'Скасовано' };
+  const STATUS_LABELS = { new:'Нове', processing:'В обробці', in_transit:'В дорозі', done:'Виконано', cancelled:'Скасовано' };
 
   async function loadOrders(){
     const tbody = document.getElementById('ordersTbody');
@@ -1526,11 +1529,17 @@
         body: JSON.stringify({ id, status })
       });
       if(res.status === 401){ showGate('Сесія закінчилась — увійдіть знову'); return; }
+      let data = null;
+      try{ data = await res.json(); }catch(e){}
       if(!res.ok) throw new Error();
       const o = orders.find(x => x.id === id);
       if(o) o.status = status;
       updateOrdersBadge();
-      showToast('Статус замовлення оновлено');
+      if(status === 'done' && data && data.reviewEmailSent){
+        showToast('Статус оновлено, лист з проханням залишити відгук надіслано');
+      } else {
+        showToast('Статус замовлення оновлено');
+      }
     }catch(e){
       showToast('Не вдалось оновити статус');
       loadOrders();
@@ -1554,12 +1563,17 @@
       try{ data = await res.json(); }catch(e){}
       if(!res.ok) throw new Error();
       const o = orders.find(x => x.id === id);
-      if(o) o.trackingNumber = trackingNumber;
+      if(o){
+        o.trackingNumber = trackingNumber;
+        if(data && data.status) o.status = data.status;
+      }
+      updateOrdersBadge();
+      renderOrders();
       if(data && data.emailSent){
-        showToast('ТТН збережено, лист клієнту надіслано');
+        showToast('ТТН збережено, статус «В дорозі», лист клієнту надіслано');
       } else {
         const o2 = orders.find(x => x.id === id);
-        showToast(o2 && o2.email ? 'ТТН збережено (лист не надіслано)' : 'ТТН збережено (email клієнта не вказано — лист не надсилався)');
+        showToast(o2 && o2.email ? 'ТТН збережено, статус «В дорозі» (лист не надіслано)' : 'ТТН збережено, статус «В дорозі» (email клієнта не вказано — лист не надсилався)');
       }
     }catch(e){
       showToast('Не вдалось зберегти ТТН');

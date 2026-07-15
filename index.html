@@ -699,12 +699,17 @@
   }
   function backToCart(){ showView('cart'); }
 
+  let lastOrderItemsDetailed = [];
+
   function goCheckout(){
     const entries = cartEntries();
     if(entries.length === 0){ showToast('Додайте товари в кошик'); return; }
     const lines = entries.map(({p,q}) => `${p.name}${p.available ? '' : ' (немає в наявності)'} — ${q} шт × ${fmt(p.price)} = ${fmt(p.price*q)}`);
     document.getElementById('orderField').value = lines.join('\n');
     document.getElementById('totalField').value = fmt(cartTotal());
+    // Зберігаємо фото й деталі товарів окремо (для листа-підтвердження на email клієнта) —
+    // текстове поле order/orderField лишається як є для Netlify Forms.
+    lastOrderItemsDetailed = entries.map(({p,q}) => ({ name: p.name, qty: q, price: p.price, img: p.img || '' }));
     document.getElementById('orderSummary').innerHTML =
       entries.map(({p,q}) => `<div class="row"><span>${esc(p.name)}${p.available ? '' : ' <span style="color:#ff8f8f;">(немає в наявності)</span>'} × ${q}</span><span>${fmt(p.price*q)}</span></div>`).join('') +
       `<div class="row total"><span>Разом</span><span>${fmt(cartTotal())}</span></div>`;
@@ -856,7 +861,8 @@
       payment: fd.get('payment') || '',
       comment: fd.get('comment') || '',
       items: fd.get('order') || '',
-      total: fd.get('total') || ''
+      total: fd.get('total') || '',
+      itemsDetailed: lastOrderItemsDetailed
     };
 
     const netlifyFormsPromise = fetch('/', {
@@ -890,6 +896,7 @@
           : `Дякуємо за замовлення. Наш менеджер зв'яжеться з вами найближчим часом для підтвердження та деталей доставки.`;
       }
       cart = {}; saveCart(); renderCart();
+      lastOrderItemsDetailed = [];
       form.reset();
       selectedCityRef = null;
       loadBranchesForCurrentSelection();
