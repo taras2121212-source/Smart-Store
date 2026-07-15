@@ -18,10 +18,19 @@ const ALLOWED_TYPES = ['products', 'categories', 'reviews'];
 function getCatalogStore() {
   const siteID = process.env.BLOBS_SITE_ID;
   const token = process.env.BLOBS_TOKEN;
+  // consistency: 'strong' — важливо! Без цього Netlify Blobs за замовчуванням
+  // eventual consistency (оновлення/видалення можуть доходити до 60 секунд).
+  // Публікація з адмінки одразу тригерить build.py, який тут-таки читає ці
+  // самі дані назад — без strong consistency build міг встигнути прочитати
+  // ще СТАРУ (кешовану) версію і "повернути" щойно видалені товари/категорії
+  // на сайт. Strong-читання трохи повільніше, але тут це вкрай рідкісні
+  // виклики (по кліку адміна), тож затримка непомітна.
+  const opts = { name: 'catalog', consistency: 'strong' };
   if (siteID && token) {
-    return getStore({ name: 'catalog', siteID, token });
+    opts.siteID = siteID;
+    opts.token = token;
   }
-  return getStore('catalog');
+  return getStore(opts);
 }
 
 function json(statusCode, data) {
