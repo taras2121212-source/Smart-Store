@@ -577,11 +577,19 @@
   }
 
   function saveDraft(){
-    try{ localStorage.setItem(DRAFT_KEY, JSON.stringify(products)); }catch(e){}
+    try{
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(products));
+    }catch(e){
+      showToast('⚠️ Не вдалось зберегти чернетку локально (localStorage переповнений через фото у форматі base64). Зміни НЕ збережуться після оновлення сторінки, доки ви не натиснете «Опублікувати на сайті» — зробіть це зараз!');
+    }
   }
 
   function saveCategoriesDraft(){
-    try{ localStorage.setItem(CAT_DRAFT_KEY, JSON.stringify(categories)); }catch(e){}
+    try{
+      localStorage.setItem(CAT_DRAFT_KEY, JSON.stringify(categories));
+    }catch(e){
+      showToast('⚠️ Не вдалось зберегти чернетку категорій локально (localStorage переповнений). Натисніть «Опублікувати на сайті», щоб зміни не загубились!');
+    }
   }
 
   function buildCatFilter(){
@@ -1224,7 +1232,11 @@
 
   // ---------- reviews (moderation queue, stored in reviews.json) ----------
   function saveReviewsDraft(){
-    try{ localStorage.setItem(REVIEWS_DRAFT_KEY, JSON.stringify(reviews)); }catch(e){}
+    try{
+      localStorage.setItem(REVIEWS_DRAFT_KEY, JSON.stringify(reviews));
+    }catch(e){
+      showToast('⚠️ Не вдалось зберегти чернетку відгуків локально (localStorage переповнений). Натисніть «Опублікувати на сайті»!');
+    }
   }
 
   function updateReviewsBadge(){
