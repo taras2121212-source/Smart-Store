@@ -741,7 +741,12 @@
     renderTable();
     renderTopSalesPanel();
     renderCategoriesTable();
-    showToast('Товар видалено (не забудьте зберегти файл)');
+    showToast('Товар видалено, публікую…');
+    // Видалення публікуємо на сервер одразу, а не чекаємо ручного кліку на
+    // "Опублікувати" — це не дає видаленню загубитись, якщо чернетка в
+    // localStorage не збережеться (наприклад, через переповнений ліміт
+    // через фото у форматі base64) і при оновленні сторінки товар "повернеться".
+    publishToBackend('products', products, 'publishProductsBtn');
   }
 
   function productImagesOf(p){
@@ -967,6 +972,20 @@
         showToast('Помилка публікації: ' + (result.error || `HTTP ${res.status}`));
         return;
       }
+      // Синхронізуємо локальну чернетку з тим, що щойно опубліковано на сервері.
+      // Без цього стара чернетка (наприклад, та, що збереглась ДО невдалого
+      // збереження через переповнений localStorage) могла б при наступному
+      // відкритті адмінки "перемогти" вже опубліковані зміни і показати
+      // видалені товари/категорії знову.
+      const draftKey = type === 'products' ? DRAFT_KEY : type === 'categories' ? CAT_DRAFT_KEY : REVIEWS_DRAFT_KEY;
+      try{
+        localStorage.setItem(draftKey, JSON.stringify(data));
+      }catch(e){
+        // навіть синхронізована чернетка не влазить в localStorage — краще
+        // прибрати її зовсім, щоб при оновленні сторінки адмінка підвантажила
+        // актуальні дані з сервера, а не стару (неправдиву) чернетку
+        localStorage.removeItem(draftKey);
+      }
       if(result.published){
         showToast('Опубліковано! Сайт оновиться приблизно за хвилину.');
       } else {
@@ -1154,7 +1173,10 @@
       buildCatFilter();
       buildProductCatSelect();
       renderCategoriesTable();
-      showToast('Категорію видалено');
+      showToast('Категорію видалено, публікую…');
+      // Публікуємо одразу, щоб видалення не загубилось при оновленні сторінки
+      // (та ж причина, що й для видалення товарів — див. коментар у deleteProduct).
+      publishToBackend('categories', categories, 'publishCategoriesBtn');
       return;
     }
     const others = categories.filter(c=>c.name!==name);
@@ -1186,7 +1208,11 @@
     renderTable();
     renderCategoriesTable();
     closeReassignModal();
-    showToast(`Товари перенесено в «${target}», категорію видалено`);
+    showToast(`Товари перенесено в «${target}», категорію видалено, публікую…`);
+    // Публікуємо обидва типи одразу — товари (у них змінилась категорія) і
+    // категорії (одну видалено) — щоб нічого не загубилось при оновленні сторінки.
+    publishToBackend('products', products, 'publishProductsBtn');
+    publishToBackend('categories', categories, 'publishCategoriesBtn');
   }
 
   function importCategoriesJson(file){
