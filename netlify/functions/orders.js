@@ -69,6 +69,48 @@ function orderConfirmationHtml(order) {
     </div>`;
 }
 
+function trackingEmailHtml(order) {
+  return `
+    <div style="font-family:Arial,sans-serif; max-width:520px; margin:0 auto; color:#17181c;">
+      <h2 style="margin-bottom:4px;">Замовлення №${escapeHtml(order.id)} відправлено</h2>
+      <p style="color:#555;">Ваше замовлення передано у службу доставки. Номер ТТН для відстеження:</p>
+      <p style="font-size:22px; font-weight:700; letter-spacing:.02em; background:#f4f4f2; padding:12px 16px; border-radius:10px; display:inline-block;">${escapeHtml(order.trackingNumber)}</p>
+      <p style="font-size:14px; color:#555; margin-top:16px;">${escapeHtml(order.delivery)}${order.branch ? `<br>${escapeHtml(order.branch)}` : ''}<br>м. ${escapeHtml(order.city)}</p>
+      <p style="color:#999; font-size:12px; margin-top:24px;">SMART STORE</p>
+    </div>`;
+}
+
+// Best-effort, аналогічно sendConfirmationEmail: якщо не вдалось — не ламає збереження ТТН.
+async function sendTrackingEmail(order) {
+  if (!order.email) return false;
+  const apiKey = process.env.RESEND_API_KEY;
+  const fromAddr = process.env.NOTIFY_FROM_EMAIL;
+  if (!apiKey || !fromAddr) return false;
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: fromAddr,
+        to: order.email,
+        subject: `Замовлення №${order.id} відправлено — ТТН ${order.trackingNumber} — SMART STORE`,
+        html: trackingEmailHtml(order),
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    return res.ok;
+  } catch (e) {
+    return false;
+  }
+}
+
 // Best-effort: якщо RESEND_API_KEY/NOTIFY_FROM_EMAIL не задані, або запит не вдався
 // (немає мережі, невірний ключ тощо) — просто повертаємо false, замовлення це не ламає.
 async function sendConfirmationEmail(order) {
@@ -119,6 +161,7 @@ exports.handler = async (event) => {
         id,
         createdAt: new Date().toISOString(),
         status: 'new',
+        trackingNumber: '',
         name: String(body.name || '').slice(0, 200),
         phone: String(body.phone || '').slice(0, 60),
         email: String(body.email || '').slice(0, 200),
@@ -161,8 +204,19 @@ exports.handler = async (event) => {
       if (!existing) return json(404, { error: 'Замовлення не знайдено' });
 
       if (body.status) existing.status = String(body.status).slice(0, 40);
+
+      let emailSent = false;
+      if (typeof body.trackingNumber === 'string') {
+        const newTracking = body.trackingNumber.trim().slice(0, 100);
+        const trackingChanged = newTracking && newTracking !== existing.trackingNumber;
+        existing.trackingNumber = newTracking;
+        if (trackingChanged) {
+          emailSent = await sendTrackingEmail(existing);
+        }
+      }
+
       await store.setJSON(body.id, existing);
-      return json(200, { ok: true });
+      return json(200, { ok: true, emailSent });
     }
 
     if (event.httpMethod === 'DELETE') {
