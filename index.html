@@ -81,7 +81,26 @@
   <div>🛡️&nbsp;Гарантія на техніку</div>
 </div>
 
-<section class="block" id="topSalesSection" style="display:none;">
+<section class="brands-strip reveal" aria-label="Бренди, з якими ми працюємо">
+  <div class="brands-inner">
+    <span class="brands-label">Офіційно продаємо</span>
+    <div class="brands-row">
+      <button class="brand-chip" onclick="filterByBrand('Acefast')">ACEFAST</button>
+      <button class="brand-chip" onclick="filterByBrand('WIWU')">WiWU</button>
+      <button class="brand-chip" onclick="filterByBrand('Remax')">REMAX</button>
+      <button class="brand-chip" onclick="filterByBrand('Blueo')">blueo</button>
+    </div>
+  </div>
+</section>
+
+<section class="stats-row reveal" aria-label="SMART STORE у цифрах">
+  <div class="stat-item"><div class="stat-num" data-count="5000" data-suffix="+">0</div><div class="stat-label">Задоволених клієнтів</div></div>
+  <div class="stat-item"><div class="stat-num" data-count="12000" data-suffix="+">0</div><div class="stat-label">Замовлень виконано</div></div>
+  <div class="stat-item"><div class="stat-num" data-count="4.9" data-suffix="★">0</div><div class="stat-label">Середній рейтинг</div></div>
+  <div class="stat-item"><div class="stat-num" data-count="1" data-suffix="-3 дні">0</div><div class="stat-label">Доставка по Україні</div></div>
+</section>
+
+<section class="block reveal" id="topSalesSection" style="display:none;">
   <div class="section-head">
     <div>
       <span class="tag-mono eyebrow" style="margin-bottom:10px; display:inline-flex;">🔥 Хіти продажів</span>
@@ -92,7 +111,7 @@
   <div class="prod-grid" id="topSalesGrid"></div>
 </section>
 
-<section class="block" id="categories">
+<section class="block reveal" id="categories">
   <div class="section-head">
     <div>
       <span class="tag-mono eyebrow" style="margin-bottom:10px; display:inline-flex;">Каталог</span>
@@ -103,7 +122,7 @@
   <div class="cat-grid" id="catGrid"></div>
 </section>
 
-<section class="block" id="products">
+<section class="block reveal" id="products">
   <div class="section-head">
     <div>
       <span class="tag-mono eyebrow" style="margin-bottom:10px; display:inline-flex;">Каталог товарів</span>
@@ -138,7 +157,7 @@
   </div>
 </section>
 
-<section class="block" id="why">
+<section class="block reveal" id="why">
   <div class="section-head">
     <div>
       <span class="tag-mono eyebrow" style="margin-bottom:10px; display:inline-flex;">Чому ми</span>
@@ -152,7 +171,7 @@
   </div>
 </section>
 
-<section class="block" id="reviews">
+<section class="block reveal" id="reviews">
   <div class="section-head">
     <div><h2>Що кажуть покупці</h2></div>
     <div style="display:flex; gap:10px;">
@@ -165,7 +184,7 @@
   </div>
 </section>
 
-<section class="block" id="contacts">
+<section class="block reveal" id="contacts">
   <div class="final-cta">
     <h2>Готові оновити свій набір аксесуарів?</h2>
     <p>Оформіть замовлення прямо зараз — ми зв'яжемось для підтвердження та оплати.</p>
@@ -1054,6 +1073,74 @@
     circle.style.strokeDashoffset = offset;
     document.getElementById('orbPct').innerHTML = pct + '<span>%</span>';
   });
+
+  // ---------- легкі анімації: плавна поява блоків при скролі ----------
+  const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const revealObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if(entry.isIntersecting){
+        entry.target.classList.add('in-view');
+        revealObserver.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.12 });
+  document.querySelectorAll('.reveal').forEach(el => {
+    if(REDUCED_MOTION){ el.classList.add('in-view'); } else { revealObserver.observe(el); }
+  });
+
+  // ---------- легкі анімації: цифри рахуються при появі ----------
+  function animateStatNum(el){
+    const raw = el.dataset.count || '0';
+    const target = parseFloat(raw);
+    const decimals = (raw.split('.')[1] || '').length;
+    const suffix = el.dataset.suffix || '';
+    if(REDUCED_MOTION || !isFinite(target)){ el.textContent = target.toFixed(decimals) + suffix; return; }
+    const duration = 1100;
+    const start = performance.now();
+    function tick(now){
+      const p = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      el.textContent = (target * eased).toFixed(decimals) + suffix;
+      if(p < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+  const statObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if(entry.isIntersecting){
+        animateStatNum(entry.target);
+        statObserver.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.4 });
+  document.querySelectorAll('.stat-num[data-count]').forEach(el => statObserver.observe(el));
+
+  // ---------- легкі анімації: ripple-ефект на кнопках ----------
+  document.addEventListener('click', (e) => {
+    if(REDUCED_MOTION) return;
+    const btn = e.target.closest('.btn, .add-btn');
+    if(!btn) return;
+    const rect = btn.getBoundingClientRect();
+    const size = Math.max(rect.width, rect.height);
+    const span = document.createElement('span');
+    span.className = 'ripple';
+    span.style.width = span.style.height = size + 'px';
+    span.style.left = (e.clientX - rect.left - size / 2) + 'px';
+    span.style.top = (e.clientY - rect.top - size / 2) + 'px';
+    btn.appendChild(span);
+    span.addEventListener('animationend', () => span.remove());
+  });
+
+  // ---------- блок брендів: клік по бренду фільтрує каталог і скролить до нього ----------
+  function filterByBrand(name){
+    const sel = document.getElementById('brandFilter');
+    if(sel){
+      const opt = [...sel.options].find(o => o.value.toLowerCase() === name.toLowerCase());
+      sel.value = opt ? opt.value : name;
+    }
+    setBrand(sel ? sel.value : name);
+    document.getElementById('products').scrollIntoView({ behavior: 'smooth' });
+  }
 </script>
 </body>
 </html>

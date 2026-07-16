@@ -217,6 +217,22 @@
     var fill = document.getElementById('batteryFill');
     if(fill) fill.style.width = pct + '%';
   });
+  // легкий ripple-ефект на кнопках (той самий, що й на головній сторінці)
+  var REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  document.addEventListener('click', function(e){
+    if(REDUCED_MOTION) return;
+    var btn = e.target.closest('.btn, .add-btn');
+    if(!btn) return;
+    var rect = btn.getBoundingClientRect();
+    var size = Math.max(rect.width, rect.height);
+    var span = document.createElement('span');
+    span.className = 'ripple';
+    span.style.width = span.style.height = size + 'px';
+    span.style.left = (e.clientX - rect.left - size / 2) + 'px';
+    span.style.top = (e.clientY - rect.top - size / 2) + 'px';
+    btn.appendChild(span);
+    span.addEventListener('animationend', function(){ span.remove(); });
+  });
 </script>
 
 <script>
