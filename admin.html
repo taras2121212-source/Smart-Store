@@ -326,9 +326,9 @@
 
     <table>
       <thead>
-        <tr><th>Дата</th><th>Клієнт</th><th>Товари</th><th>Сума</th><th>Доставка</th><th>Оплата</th><th>Статус</th><th>ТТН</th><th></th></tr>
+        <tr><th>№</th><th>Дата</th><th>Клієнт</th><th>Товари</th><th>Сума</th><th>Доставка</th><th>Оплата</th><th>Статус</th><th>ТТН</th><th></th></tr>
       </thead>
-      <tbody id="ordersTbody"><tr class="empty-row"><td colspan="9">Завантаження…</td></tr></tbody>
+      <tbody id="ordersTbody"><tr class="empty-row"><td colspan="10">Завантаження…</td></tr></tbody>
     </table>
   </div>
 </div>
@@ -1499,14 +1499,14 @@
       }
       if(!res.ok){
         const detail = data && (data.details || data.error) ? esc(data.details || data.error) : `HTTP ${res.status}`;
-        tbody.innerHTML = `<tr class="empty-row"><td colspan="9">Не вдалось завантажити замовлення: ${detail}</td></tr>`;
+        tbody.innerHTML = `<tr class="empty-row"><td colspan="10">Не вдалось завантажити замовлення: ${detail}</td></tr>`;
         return;
       }
       orders = (data && data.orders) || [];
       updateOrdersBadge();
       renderOrders();
     }catch(e){
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="9">Не вдалось завантажити замовлення. Це працює лише після публікації сайту на Netlify (з підключеною функцією netlify/functions/orders.js).</td></tr>';
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="10">Не вдалось завантажити замовлення. Це працює лише після публікації сайту на Netlify (з підключеною функцією netlify/functions/orders.js).</td></tr>';
     }
   }
 
@@ -1523,11 +1523,12 @@
     const tbody = document.getElementById('ordersTbody');
     document.getElementById('ordersCountTag').textContent = `${list.length} з ${orders.length} замовлень`;
     if(list.length === 0){
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="9">Замовлень не знайдено</td></tr>';
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="10">Замовлень не знайдено</td></tr>';
       return;
     }
     tbody.innerHTML = list.map(o => `
       <tr>
+        <td data-label="№" style="font-variant-numeric: tabular-nums;">${esc(o.orderNumber || o.id)}</td>
         <td data-label="Дата">${esc(formatOrderDate(o.createdAt))}</td>
         <td data-label="Клієнт"><div class="nm">${esc(o.name)}</div><div class="cat">${esc(o.phone)}</div>${o.email ? `<div class="cat">${esc(o.email)}</div>` : ''}${o.noCall ? `<div style="color:var(--red); font-size:12px; font-weight:600; margin-top:2px;">🔕 Не дзвонити</div>` : ''}</td>
         <td data-label="Товари" style="max-width:260px; white-space:pre-wrap; font-size:12px;">${esc(o.items)}</td>

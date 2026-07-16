@@ -44,6 +44,30 @@ function isAuthorized(event) {
   return isSessionValid(event);
 }
 
+// Порядковий номер замовлення (001001, 001002, 001003, ...), який бачить клієнт.
+// Зберігається окремим лічильником у тому ж сховищі Netlify Blobs, щоб номери йшли
+// підряд, а не були випадковими символами.
+const ORDER_COUNTER_KEY = '_order_number_counter';
+const ORDER_NUMBER_START = 1000; // перше видане число буде 1001 -> "001001"
+
+function formatOrderNumber(n) {
+  return String(n).padStart(6, '0');
+}
+
+async function getNextOrderNumber(store) {
+  let counter = null;
+  try {
+    counter = await store.get(ORDER_COUNTER_KEY, { type: 'json' });
+  } catch (e) {
+    counter = null;
+  }
+  const current = (counter && typeof counter.value === 'number') ? counter.value : ORDER_NUMBER_START;
+  const next = current + 1;
+  await store.setJSON(ORDER_COUNTER_KEY, { value: next });
+  return next;
+}
+
+
 function escapeHtml(s) {
   return String(s || '').replace(/[&<>"']/g, (c) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -66,6 +90,12 @@ function sanitizeItemsDetailed(items) {
     price: String((it && it.price) || '').slice(0, 40),
     img: isSafeImageUrl(it && it.img) ? String(it.img).slice(0, 500) : '',
   }));
+}
+
+// Номер, який показуємо клієнту/адміну: послідовний (001001, 001002, ...), якщо є,
+// інакше — старий внутрішній id (для замовлень, створених до цього виправлення).
+function displayOrderNumber(order) {
+  return order.orderNumber || order.id;
 }
 
 function orderItemsPhotosHtml(order) {
@@ -92,7 +122,7 @@ function orderConfirmationHtml(order) {
   const branchLine = order.branch ? `<br>${escapeHtml(order.branch)}` : '';
   return `
     <div style="font-family:Arial,sans-serif; max-width:520px; margin:0 auto; color:#17181c;">
-      <h2 style="margin-bottom:4px;">Замовлення №${escapeHtml(order.id)} прийнято</h2>
+      <h2 style="margin-bottom:4px;">Замовлення №${escapeHtml(displayOrderNumber(order))} прийнято</h2>
       <p style="color:#555;">${order.noCall
         ? 'Дякуємо за замовлення в SMART STORE! Ви обрали не дзвонити для підтвердження — ми обробимо замовлення без дзвінка.'
         : 'Дякуємо за замовлення в SMART STORE! Менеджер зв\'яжеться з вами найближчим часом для підтвердження та деталей доставки.'}</p>
@@ -111,7 +141,7 @@ function orderConfirmationHtml(order) {
 function trackingEmailHtml(order) {
   return `
     <div style="font-family:Arial,sans-serif; max-width:520px; margin:0 auto; color:#17181c;">
-      <h2 style="margin-bottom:4px;">Замовлення №${escapeHtml(order.id)} відправлено</h2>
+      <h2 style="margin-bottom:4px;">Замовлення №${escapeHtml(displayOrderNumber(order))} відправлено</h2>
       <p style="color:#555;">Ваше замовлення передано у службу доставки. Номер ТТН для відстеження:</p>
       <p style="font-size:22px; font-weight:700; letter-spacing:.02em; background:#f4f4f2; padding:12px 16px; border-radius:10px; display:inline-block;">${escapeHtml(order.trackingNumber)}</p>
       <p style="font-size:14px; color:#555; margin-top:16px;">${escapeHtml(order.delivery)}${order.branch ? `<br>${escapeHtml(order.branch)}` : ''}<br>м. ${escapeHtml(order.city)}</p>
@@ -138,7 +168,7 @@ async function sendTrackingEmail(order) {
       body: JSON.stringify({
         from: fromAddr,
         to: order.email,
-        subject: `Замовлення №${order.id} відправлено — ТТН ${order.trackingNumber} — SMART STORE`,
+        subject: `Замовлення №${displayOrderNumber(order)} відправлено — ТТН ${order.trackingNumber} — SMART STORE`,
         html: trackingEmailHtml(order),
       }),
       signal: controller.signal,
@@ -170,7 +200,7 @@ async function sendConfirmationEmail(order) {
       body: JSON.stringify({
         from: fromAddr,
         to: order.email,
-        subject: `Замовлення №${order.id} прийнято — SMART STORE`,
+        subject: `Замовлення №${displayOrderNumber(order)} прийнято — SMART STORE`,
         html: orderConfirmationHtml(order),
       }),
       signal: controller.signal,
@@ -185,7 +215,7 @@ async function sendConfirmationEmail(order) {
 function reviewRequestEmailHtml(order) {
   return `
     <div style="font-family:Arial,sans-serif; max-width:520px; margin:0 auto; color:#17181c;">
-      <h2 style="margin-bottom:4px;">Замовлення №${escapeHtml(order.id)} виконано 🎉</h2>
+      <h2 style="margin-bottom:4px;">Замовлення №${escapeHtml(displayOrderNumber(order))} виконано 🎉</h2>
       <p style="color:#555;">Дякуємо, що обрали SMART STORE! Сподіваємось, покупка вас порадувала.</p>
       <p style="font-size:14px; color:#555;">Нам дуже важлива ваша думка — будемо вдячні за пару хвилин, щоб оцінити
       роботу магазину та залишити відгук. Це допомагає нам ставати кращими, а іншим покупцям — обирати правильно.</p>
@@ -241,8 +271,10 @@ exports.handler = async (event) => {
       }
 
       const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+      const orderNumber = formatOrderNumber(await getNextOrderNumber(store));
       const order = {
         id,
+        orderNumber,
         createdAt: new Date().toISOString(),
         status: 'new',
         trackingNumber: '',
@@ -271,7 +303,9 @@ exports.handler = async (event) => {
 
       const { blobs } = await store.list();
       const orders = await Promise.all(
-        blobs.map((b) => store.get(b.key, { type: 'json' }))
+        blobs
+          .filter((b) => b.key !== ORDER_COUNTER_KEY)
+          .map((b) => store.get(b.key, { type: 'json' }))
       );
       orders.sort((a, b) => String(b && b.createdAt).localeCompare(String(a && a.createdAt)));
       return json(200, { orders: orders.filter(Boolean) });
