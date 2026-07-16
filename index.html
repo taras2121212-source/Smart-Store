@@ -86,7 +86,7 @@
     <a class="brand-logo" href="#products" onclick="event.preventDefault(); filterByBrand('Acefast')">ACEFAST</a>
     <a class="brand-logo" href="#products" onclick="event.preventDefault(); filterByBrand('WIWU')">WiWU</a>
     <a class="brand-logo" href="#products" onclick="event.preventDefault(); filterByBrand('Remax')">REMAX</a>
-    <a class="brand-logo" href="#products" onclick="event.preventDefault(); filterByBrand('Blueo')">blueo</a>
+    <a class="brand-logo" href="#products" onclick="event.preventDefault(); filterByBrand('Blueo')">BLUEO</a>
   </div>
   <div class="stat-divider"></div>
   <div class="stat-item">
@@ -1085,10 +1085,16 @@
         revealObserver.unobserve(entry.target);
       }
     });
-  }, { threshold: 0.12 });
+  }, { threshold: 0, rootMargin: '0px 0px -5% 0px' });
   document.querySelectorAll('.reveal').forEach(el => {
     if(REDUCED_MOTION){ el.classList.add('in-view'); } else { revealObserver.observe(el); }
   });
+  // запобіжник: якщо з якоїсь причини спостерігач не спрацював для секції (наприклад,
+  // дуже висока секція товарів на вузькому мобільному екрані) — все одно показуємо її,
+  // щоб контент ніколи не лишався невидимим назавжди.
+  setTimeout(() => {
+    document.querySelectorAll('.reveal:not(.in-view)').forEach(el => el.classList.add('in-view'));
+  }, 2500);
 
   // ---------- легкі анімації: цифри рахуються при появі ----------
   function animateStatNum(el){
