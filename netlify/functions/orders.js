@@ -295,7 +295,7 @@ exports.handler = async (event) => {
 
       await store.setJSON(id, order);
       const emailSent = await sendConfirmationEmail(order);
-      return json(200, { ok: true, id, emailSent });
+      return json(200, { ok: true, id, orderNumber, emailSent });
     }
 
     if (event.httpMethod === 'GET') {
