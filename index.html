@@ -283,6 +283,25 @@
       </form>
     </div>
 
+    <!-- CARD PAYMENT VIEW -->
+    <div id="cardPaymentView" style="display:none; flex-direction:column; gap:14px; height:100%;">
+      <h3>Оплата карткою <span class="x" onclick="closeCart()">✕</span></h3>
+      <div class="drawer-scroll">
+        <p class="note">Замовлення №<b id="cpOrderNumber"></b> прийнято. Щоб ми якнайшвидше відправили посилку,
+          оплатіть суму <b id="cpTotal"></b> за реквізитами нижче й натисніть «Я оплатив».</p>
+        <div class="order-summary" style="display:flex; flex-direction:column; gap:6px;">
+          <div class="row"><span>Номер картки</span></div>
+          <div id="cpCardNumber" style="font-family:'JetBrains Mono',monospace; font-size:18px; letter-spacing:.03em; color:var(--text);"></div>
+          <div class="row" id="cpHolderRow" style="margin-top:8px;"><span>Отримувач</span><span id="cpHolder"></span></div>
+          <div class="row" id="cpBankRow"><span>Банк</span><span id="cpBank"></span></div>
+        </div>
+        <p class="note" id="cpComment"></p>
+        <button class="btn btn-ghost" style="width:100%; justify-content:center;" onclick="copyCardNumber()">📋 Скопіювати картку</button>
+      </div>
+      <button class="btn btn-primary" id="markPaidBtn" style="width:100%; justify-content:center;" onclick="markOrderPaid()">Я оплатив</button>
+      <div class="note">Після підтвердження менеджером ми одразу передамо замовлення в доставку.</div>
+    </div>
+
     <!-- SUCCESS VIEW -->
     <div id="successView" style="display:none; flex-direction:column; height:100%;">
       <h3>Готово <span class="x" onclick="closeCart()">✕</span></h3>
@@ -731,11 +750,24 @@
   function showView(v){
     document.getElementById('cartView').style.display = v==='cart' ? 'flex' : 'none';
     document.getElementById('checkoutView').style.display = v==='checkout' ? 'flex' : 'none';
+    document.getElementById('cardPaymentView').style.display = v==='cardPayment' ? 'flex' : 'none';
     document.getElementById('successView').style.display = v==='success' ? 'flex' : 'none';
   }
   function backToCart(){ showView('cart'); }
 
   let lastOrderItemsDetailed = [];
+
+  // ---------- payment card requisites (для блоку "Повна оплата на картку") ----------
+  let paymentCardInfo = null;
+  let paymentCardFetchStarted = false;
+  function ensurePaymentCardLoaded(){
+    if(paymentCardFetchStarted) return;
+    paymentCardFetchStarted = true;
+    fetch('/.netlify/functions/settings')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if(data && data.card) paymentCardInfo = data.card; })
+      .catch(() => {});
+  }
 
   function goCheckout(){
     const entries = cartEntries();
@@ -752,6 +784,7 @@
     showView('checkout');
     loadBranchesForCurrentSelection();
     onPaymentChange();
+    ensurePaymentCardLoaded();
   }
 
   // ---------- Nova Poshta integration (cities / branches / postomats) ----------
@@ -949,18 +982,101 @@
             : `Дякуємо за замовлення. Наш менеджер зв'яжеться з вами найближчим часом для підтвердження та деталей доставки.`;
         }
       }
+
+      // Якщо замовлення успішно потрапило в адмінку (orders.js) і клієнт обрав
+      // "Повна оплата на картку" — показуємо крок з реквізитами замість одразу
+      // фінального екрану "Готово".
+      let orderResJson = null;
+      if(orderRes && orderRes.ok){
+        try{ orderResJson = await orderRes.json(); }catch(e){}
+      }
+      const showCardStep = orderPayload.payment === 'Повна оплата на картку' && orderResJson && orderResJson.id;
+
       cart = {}; saveCart(); renderCart();
       lastOrderItemsDetailed = [];
       form.reset();
       onNoCallChange();
       selectedCityRef = null;
       loadBranchesForCurrentSelection();
-      showView('success');
+
+      if(showCardStep){
+        openCardPaymentStep(orderResJson.id, orderResJson.orderNumber, orderPayload.total);
+      } else {
+        showView('success');
+      }
     } else {
       showToast('Помилка надсилання. Спробуйте ще раз.');
       btn.disabled = false; btn.textContent = 'Підтвердити замовлення';
     }
   });
+
+  // ---------- card payment step ----------
+  let cardPaymentOrderId = null;
+
+  function openCardPaymentStep(orderId, orderNumber, total){
+    cardPaymentOrderId = orderId;
+    document.getElementById('cpOrderNumber').textContent = orderNumber || orderId;
+    document.getElementById('cpTotal').textContent = total || '';
+
+    const card = paymentCardInfo;
+    const numEl = document.getElementById('cpCardNumber');
+    const holderRow = document.getElementById('cpHolderRow');
+    const bankRow = document.getElementById('cpBankRow');
+    const commentEl = document.getElementById('cpComment');
+
+    if(card && card.cardNumber){
+      numEl.textContent = card.cardNumber;
+      if(card.holderName){ holderRow.style.display = 'flex'; document.getElementById('cpHolder').textContent = card.holderName; }
+      else holderRow.style.display = 'none';
+      if(card.bank){ bankRow.style.display = 'flex'; document.getElementById('cpBank').textContent = card.bank; }
+      else bankRow.style.display = 'none';
+      commentEl.textContent = card.comment || '';
+      commentEl.style.display = card.comment ? 'block' : 'none';
+    } else {
+      numEl.textContent = 'Реквізити уточнить менеджер';
+      holderRow.style.display = 'none';
+      bankRow.style.display = 'none';
+      commentEl.textContent = 'Не вдалось завантажити реквізити — менеджер надішле їх окремо, або зв\'яжіться з нами.';
+      commentEl.style.display = 'block';
+    }
+
+    const btn = document.getElementById('markPaidBtn');
+    btn.disabled = false; btn.textContent = 'Я оплатив';
+
+    showView('cardPayment');
+  }
+
+  function copyCardNumber(){
+    const card = paymentCardInfo;
+    if(!card || !card.cardNumber){ showToast('Реквізити ще не завантажено'); return; }
+    const num = card.cardNumber.replace(/\s+/g, ' ').trim();
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(num).then(() => showToast('Номер картки скопійовано'))
+        .catch(() => showToast('Не вдалось скопіювати'));
+    } else {
+      showToast('Не вдалось скопіювати');
+    }
+  }
+
+  async function markOrderPaid(){
+    if(!cardPaymentOrderId) return;
+    const btn = document.getElementById('markPaidBtn');
+    btn.disabled = true; btn.textContent = 'Надсилаємо…';
+    try{
+      const res = await fetch('/.netlify/functions/orders', {
+        method: 'PATCH',
+        headers: { 'Content-Type':'application/json' },
+        body: JSON.stringify({ id: cardPaymentOrderId, markPaid: true })
+      });
+      if(!res.ok) throw new Error();
+      const successNote = document.getElementById('successNote');
+      if(successNote) successNote.textContent = 'Дякуємо! Ми бачимо, що ви оплатили замовлення, і перевіримо надходження коштів — після цього одразу відправимо посилку.';
+      showView('success');
+    } catch(e){
+      showToast('Не вдалось надіслати. Спробуйте ще раз.');
+      btn.disabled = false; btn.textContent = 'Я оплатив';
+    }
+  }
 
   document.getElementById('cartOverlay').addEventListener('click', (e) => { if(e.target.id === 'cartOverlay') closeCart(); });
 

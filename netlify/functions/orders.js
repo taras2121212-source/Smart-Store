@@ -312,7 +312,6 @@ exports.handler = async (event) => {
     }
 
     if (event.httpMethod === 'PATCH') {
-      if (!isAuthorized(event)) return json(401, { error: 'Сесія недійсна або закінчилась — увійдіть в адмінку знову' });
       let body;
       try {
         body = JSON.parse(event.body || '{}');
@@ -320,6 +319,24 @@ exports.handler = async (event) => {
         return json(400, { error: 'Некоректний JSON' });
       }
       if (!body.id) return json(400, { error: 'Немає id' });
+
+      // Публічна дія без адмін-сесії: покупець натиснув "Я оплатив" на кроці
+      // оплати карткою. Дозволяємо позначити ЛИШЕ своє замовлення (за id, який
+      // клієнт отримав у відповідь при створенні) статусом "очікує перевірки",
+      // і лише якщо воно ще не в більш просунутому/фінальному статусі — щоб
+      // не можна було нічого підмінити чи відкотити роботу менеджера.
+      if (body.markPaid === true && !isAuthorized(event)) {
+        const order = await store.get(body.id, { type: 'json' });
+        if (!order) return json(404, { error: 'Замовлення не знайдено' });
+        const locked = ['awaiting_verification', 'in_transit', 'done', 'cancelled'];
+        if (!locked.includes(order.status)) {
+          order.status = 'awaiting_verification';
+          await store.setJSON(body.id, order);
+        }
+        return json(200, { ok: true, status: order.status });
+      }
+
+      if (!isAuthorized(event)) return json(401, { error: 'Сесія недійсна або закінчилась — увійдіть в адмінку знову' });
 
       const existing = await store.get(body.id, { type: 'json' });
       if (!existing) return json(404, { error: 'Замовлення не знайдено' });

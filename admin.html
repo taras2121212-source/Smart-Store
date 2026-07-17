@@ -194,6 +194,7 @@
     <button class="tab-btn" id="tabCategoriesBtn" onclick="switchTab('categories')">Категорії</button>
     <button class="tab-btn" id="tabReviewsBtn" onclick="switchTab('reviews')">Відгуки<span class="tab-badge" id="reviewsBadge" style="display:none;"></span></button>
     <button class="tab-btn" id="tabOrdersBtn" onclick="switchTab('orders')">Замовлення<span class="tab-badge" id="ordersBadge" style="display:none;"></span></button>
+    <button class="tab-btn" id="tabPaymentBtn" onclick="switchTab('payment')">Оплата карткою</button>
   </div>
 
   <div id="productsPanel">
@@ -303,8 +304,12 @@
   <div id="ordersPanel" style="display:none;">
     <div class="notice" id="ordersNotice">
       Замовлення, які клієнти оформлюють на сайті, надходять сюди автоматично (через Netlify Function) —
-      нічого вручну завантажувати не потрібно. Змінюйте статус замовлення у випадаючому списку
-      (Нове → В обробці → В дорозі → Виконано, або Скасовано) та видаляйте оброблені, якщо вони більше не потрібні.
+      нічого вручну завантажувати не потрібно. Якщо покупець обрав <b>«Повна оплата на картку»</b>, після
+      оформлення йому показуються реквізити (керуються у вкладці «Оплата карткою») і кнопка «Я оплатив» —
+      після натискання замовлення автоматично переходить у статус <b>«Очікує перевірки»</b>, і його варто
+      перевірити (чи надійшли кошти) перед відправкою. Змінюйте статус замовлення у випадаючому списку
+      (Нове → Очікує перевірки → В обробці → В дорозі → Виконано, або Скасовано) та видаляйте оброблені,
+      якщо вони більше не потрібні.
       Поле <b>ТТН</b> дозволяє вписати номер накладної служби доставки — після збереження статус автоматично
       зміниться на «В дорозі», і якщо клієнт вказав email при замовленні, йому надійде лист з номером ТТН.
       Коли статус змінюється на <b>«Виконано»</b>, клієнту (якщо вказав email) автоматично надсилається лист
@@ -315,6 +320,7 @@
       <select id="orderStatusFilter" onchange="renderOrders()">
         <option value="Всі">Статус: всі</option>
         <option value="new">Нові</option>
+        <option value="awaiting_verification">Очікують перевірки оплати</option>
         <option value="processing">В обробці</option>
         <option value="in_transit">В дорозі</option>
         <option value="done">Виконані</option>
@@ -330,6 +336,36 @@
       </thead>
       <tbody id="ordersTbody"><tr class="empty-row"><td colspan="10">Завантаження…</td></tr></tbody>
     </table>
+  </div>
+
+  <div id="paymentPanel" style="display:none;">
+    <div class="notice" id="paymentNotice">
+      Ці реквізити показуються покупцю в кошику одразу після оформлення замовлення, якщо він обрав спосіб
+      оплати <b>«Повна оплата на картку»</b> — разом із кнопками «Скопіювати картку» та «Я оплатив».
+      Змініть дані й натисніть <b>«Зберегти»</b> — зміни діють одразу, без окремої публікації сайту.
+    </div>
+
+    <div style="max-width:420px; display:flex; flex-direction:column; gap:12px;">
+      <div class="field">
+        <label>Номер картки *</label>
+        <input type="text" id="pCardNumber" placeholder="0000 0000 0000 0000" maxlength="40">
+      </div>
+      <div class="field">
+        <label>Отримувач</label>
+        <input type="text" id="pCardHolder" placeholder="Напр. Тарас Кабала" maxlength="200">
+      </div>
+      <div class="field">
+        <label>Банк</label>
+        <input type="text" id="pCardBank" placeholder="Напр. monobank / ПриватБанк" maxlength="100">
+      </div>
+      <div class="field">
+        <label>Коментар покупцю (необов'язково)</label>
+        <textarea id="pCardComment" placeholder="Напр. У призначенні платежу вкажіть номер замовлення" maxlength="500"></textarea>
+      </div>
+      <div>
+        <button class="btn btn-primary" id="savePaymentBtn" onclick="savePaymentCard()">💾 Зберегти</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1022,13 +1058,16 @@
     document.getElementById('tabCategoriesBtn').classList.toggle('active', tab === 'categories');
     document.getElementById('tabReviewsBtn').classList.toggle('active', tab === 'reviews');
     document.getElementById('tabOrdersBtn').classList.toggle('active', tab === 'orders');
+    document.getElementById('tabPaymentBtn').classList.toggle('active', tab === 'payment');
     document.getElementById('productsPanel').style.display = tab === 'products' ? 'block' : 'none';
     document.getElementById('categoriesPanel').style.display = tab === 'categories' ? 'block' : 'none';
     document.getElementById('reviewsPanel').style.display = tab === 'reviews' ? 'block' : 'none';
     document.getElementById('ordersPanel').style.display = tab === 'orders' ? 'block' : 'none';
+    document.getElementById('paymentPanel').style.display = tab === 'payment' ? 'block' : 'none';
     if(tab === 'orders') loadOrders();
     if(tab === 'categories') renderCategoriesTable();
     if(tab === 'reviews') renderReviewsTable();
+    if(tab === 'payment') loadPaymentCard();
   }
 
   // ---------- categories (stored in categories.json, separate from products) ----------
@@ -1485,7 +1524,7 @@
   // ---------- orders (via Netlify Function /.netlify/functions/orders) ----------
   let orders = [];
   const ORDERS_ENDPOINT = '/.netlify/functions/orders';
-  const STATUS_LABELS = { new:'Нове', processing:'В обробці', in_transit:'В дорозі', done:'Виконано', cancelled:'Скасовано' };
+  const STATUS_LABELS = { new:'Нове', awaiting_verification:'Очікує перевірки', processing:'В обробці', in_transit:'В дорозі', done:'Виконано', cancelled:'Скасовано' };
 
   async function loadOrders(){
     const tbody = document.getElementById('ordersTbody');
@@ -1512,7 +1551,7 @@
 
   function updateOrdersBadge(){
     const badge = document.getElementById('ordersBadge');
-    const newCount = orders.filter(o => o.status === 'new').length;
+    const newCount = orders.filter(o => o.status === 'new' || o.status === 'awaiting_verification').length;
     if(newCount > 0){ badge.style.display = 'inline-block'; badge.textContent = newCount; }
     else { badge.style.display = 'none'; }
   }
@@ -1634,6 +1673,53 @@
       showToast('Замовлення видалено');
     }catch(e){
       showToast('Не вдалось видалити замовлення');
+    }
+  }
+
+  // ---------- payment card requisites (via Netlify Function /.netlify/functions/settings) ----------
+  const SETTINGS_ENDPOINT = '/.netlify/functions/settings';
+  let paymentCardLoaded = false;
+
+  async function loadPaymentCard(){
+    if(paymentCardLoaded) return;
+    try{
+      const res = await fetch(SETTINGS_ENDPOINT);
+      const data = await res.json();
+      const card = (data && data.card) || {};
+      document.getElementById('pCardNumber').value = card.cardNumber || '';
+      document.getElementById('pCardHolder').value = card.holderName || '';
+      document.getElementById('pCardBank').value = card.bank || '';
+      document.getElementById('pCardComment').value = card.comment || '';
+      paymentCardLoaded = true;
+    }catch(e){
+      showToast('Не вдалось завантажити реквізити');
+    }
+  }
+
+  async function savePaymentCard(){
+    const card = {
+      cardNumber: document.getElementById('pCardNumber').value.trim(),
+      holderName: document.getElementById('pCardHolder').value.trim(),
+      bank: document.getElementById('pCardBank').value.trim(),
+      comment: document.getElementById('pCardComment').value.trim(),
+    };
+    if(!card.cardNumber){ showToast('Вкажіть номер картки'); return; }
+    const btn = document.getElementById('savePaymentBtn');
+    btn.disabled = true; btn.textContent = 'Зберігаємо…';
+    try{
+      const res = await fetch(SETTINGS_ENDPOINT, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type':'application/json' },
+        body: JSON.stringify({ card })
+      });
+      if(res.status === 401){ showGate('Сесія закінчилась — увійдіть знову'); return; }
+      if(!res.ok) throw new Error();
+      showToast('Реквізити збережено');
+    }catch(e){
+      showToast('Не вдалось зберегти реквізити');
+    }finally{
+      btn.disabled = false; btn.textContent = '💾 Зберегти';
     }
   }
 
