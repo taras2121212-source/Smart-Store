@@ -24,6 +24,29 @@ CAT_ICONS = {
     "Кабелі": "🔌", "Адаптери": "⚡", "Павербанки": "🔋", "Інше": "📦",
 }
 
+# ---------- Google Merchant listing / Search Console structured-data settings ----------
+# Мапа наших (українських) категорій на офіційну таксономію Google Product Category —
+# без цього Google Search Console позначає поле "category" в Product-розмітці як недійсне,
+# бо очікує там значення саме з таксономії, а не довільний текст. Якщо з'явиться нова
+# категорія, якої тут нема, вона просто піде в розмітку як є (це не ідеально, але не гірше,
+# ніж було) — тоді варто буде додати відповідник сюди.
+CATEGORY_GOOGLE_TAXONOMY = {
+    "Кабелі": "Electronics > Electronics Accessories > Cables",
+    "Павербанки": "Electronics > Electronics Accessories > Power Banks",
+    "Адаптери": "Electronics > Electronics Accessories > Adapters & Chargers",
+}
+
+# Реквізити доставки/повернення — відповідають розділам 5 і 6 договору оферти (oferta.html):
+# доставка лише "Новою поштою" по Україні (оплачує покупець за тарифами перевізника),
+# повернення товару належної якості — 14 календарних днів, витрати на зворотну доставку
+# несе покупець. Google вимагає в hasMerchantReturnPolicy/shippingDetails конкретні числа,
+# а не "за тарифами перевізника", тож нижче — орієнтовні представницькі значення (типова
+# нижня межа вартості відправлення Новою поштою). Це НЕ реальний прайс перевізника: якщо
+# захочете точнішу цифру, просто підставте своє значення в ці дві константи.
+RETURN_WINDOW_DAYS = 14
+SHIPPING_RATE_UAH = 80
+RETURN_SHIPPING_FEE_UAH = 80
+
 # Невеликі inline SVG-іконки (набір Lucide, https://lucide.dev — ISC license) для карток
 # товарів: іконка кошика на кнопці "Купити", check/x в бейджі наявності, "%" в бейджі знижки.
 # Вбудовані напряму (а не через зовнішній CDN-скрипт), щоб іконки завжди рендерились одразу,
@@ -495,6 +518,18 @@ def product_images(p):
     return [p["img"]] if p.get("img") else []
 
 
+def public_image_urls(p):
+    """Тільки реальні http(s)-посилання на фото (для structured data / og:image).
+
+    Товари, додані через адмінку, можуть мати фото у вигляді base64 data-URI
+    (вбудоване прямо в products.json — на сайті це чудово працює, бо картинка
+    просто рендериться в <img>), але Google вимагає в structured data саме
+    URL-адресу, а не data-URI, інакше показує "Недійсна URL-адреса в полі image".
+    Тому такі фото сюди не потрапляють — залишаються тільки ті, що вже є звичайним
+    посиланням."""
+    return [i for i in product_images(p) if isinstance(i, str) and i.startswith(("http://", "https://"))]
+
+
 def pdp_gallery_html(p):
     images = product_images(p)
     if not images:
@@ -531,22 +566,47 @@ def render_product_page(p, products, cat_slugs):
     canonical = f"{SITE_URL}/product/{p['id']}-{slugify(p['name'])}.html"
     cat_link = f'<a href="{root}category/{cat_slugs[p["cat"]]}.html">{esc(p["cat"])}</a>'
 
+    public_images = public_image_urls(p)
     ld = {
         "@context": "https://schema.org/",
         "@type": "Product",
         "name": p["name"],
-        "image": product_images(p) or [p.get("img", "")],
         "description": desc or p["name"],
         "sku": str(p["id"]),
-        "category": p["cat"],
+        "category": CATEGORY_GOOGLE_TAXONOMY.get(p["cat"], p["cat"]),
+        "brand": {"@type": "Brand", "name": (p.get("brand") or "SMART STORE").strip()},
+        # У нас немає власних GTIN/MPN (товари відомих виробників, що продаються під їх
+        # оригінальними артикулами постачальника, а не нашими) — цей прапорець прямо каже
+        # Google, що це очікувано, а не помилка/пропуск даних.
+        "identifierExists": False,
         "offers": {
             "@type": "Offer",
             "url": canonical,
             "priceCurrency": p.get("cur", "UAH"),
             "price": str(p["price"]),
             "availability": "https://schema.org/InStock" if in_stock else "https://schema.org/OutOfStock",
+            "shippingDetails": {
+                "@type": "OfferShippingDetails",
+                "shippingDestination": {"@type": "DefinedRegion", "addressCountry": "UA"},
+                "shippingRate": {"@type": "MonetaryAmount", "value": SHIPPING_RATE_UAH, "currency": "UAH"},
+                "deliveryTime": {
+                    "@type": "ShippingDeliveryTime",
+                    "handlingTime": {"@type": "QuantitativeValue", "minValue": 0, "maxValue": 1, "unitCode": "DAY"},
+                    "transitTime": {"@type": "QuantitativeValue", "minValue": 1, "maxValue": 3, "unitCode": "DAY"},
+                },
+            },
+            "hasMerchantReturnPolicy": {
+                "@type": "MerchantReturnPolicy",
+                "applicableCountry": "UA",
+                "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+                "merchantReturnDays": RETURN_WINDOW_DAYS,
+                "returnMethod": "https://schema.org/ReturnByMail",
+                "returnShippingFeesAmount": {"@type": "MonetaryAmount", "value": RETURN_SHIPPING_FEE_UAH, "currency": "UAH"},
+            },
         },
     }
+    if public_images:
+        ld["image"] = public_images
     ld_json = json.dumps(ld, ensure_ascii=False)
 
     related_html = ""
@@ -593,7 +653,7 @@ def render_product_page(p, products, cat_slugs):
 <meta property="og:type" content="product">
 <meta property="og:title" content="{esc(p['name'])}">
 <meta property="og:description" content="{esc(meta_desc)}">
-<meta property="og:image" content="{esc(p['img'])}">
+<meta property="og:image" content="{esc(public_images[0] if public_images else SITE_URL + '/logo.jpg')}">
 <meta property="og:url" content="{canonical}">
 <meta property="product:price:amount" content="{p['price']}">
 <meta property="product:price:currency" content="{p.get('cur','UAH')}">
