@@ -5,3 +5,8 @@
 
 [functions]
   node_bundler = "esbuild"
+
+[[redirects]]
+  from = "/google-merchant-feed.xml"
+  to = "/.netlify/functions/merchant-feed"
+  status = 200
