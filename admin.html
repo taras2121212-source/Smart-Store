@@ -397,6 +397,11 @@
         <div class="img-gallery-edit" id="imgGalleryEdit"></div>
         <input type="file" id="fImgFile" accept="image/*" multiple onchange="handleImgFiles(this.files)">
         <div class="hint" id="imgFileHint">Оберіть один або кілька файлів — вони автоматично конвертуються у JPG. Перше фото зі стрічки — головне, воно показується в каталозі й картках.</div>
+        <div class="img-upload-row" style="margin-top:8px;">
+          <input type="text" id="fImgUrl" placeholder="https://... посилання на фото" style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault(); addImgByUrl();}">
+          <button type="button" class="btn" onclick="addImgByUrl()">Додати за URL</button>
+        </div>
+        <div class="hint">Посилання додається як є (без конвертації) — саме такі фото коректно підхоплює Google Merchant Center фід. Файли з комп'ютера теж працюють, але для фіда краще додавати фото через URL.</div>
         <input type="hidden" id="fImg">
       </div>
       <div class="field"><label>Опис товару</label><textarea id="fSpec" placeholder="Повний опис товару для картки"></textarea></div>
@@ -905,6 +910,20 @@
       ? `Додано ${done} фото, не вдалось обробити ${failed}`
       : `Додано ${done} фото. Перше в стрічці — головне.`;
     document.getElementById('fImgFile').value = '';
+  }
+
+  function addImgByUrl(){
+    const input = document.getElementById('fImgUrl');
+    const url = (input.value || '').trim();
+    if(!url) return;
+    if(!/^https?:\/\/.+/i.test(url)){
+      alert('Вкажіть коректне посилання, що починається з http:// або https://');
+      return;
+    }
+    editImages.push(url);
+    renderImgGalleryEdit();
+    document.getElementById('imgFileHint').textContent = 'Фото за посиланням додано. Перше в стрічці — головне.';
+    input.value = '';
   }
 
   function closeModal(){ document.getElementById('modalOverlay').classList.remove('open'); }
