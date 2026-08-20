@@ -47,6 +47,17 @@ function xmlEscape(v) {
     .replace(/'/g, '&apos;');
 }
 
+// Опис товару в Rozetka може містити HTML-теги (абзаци, списки) — Google
+// Merchant очікує в <description> звичайний текст, тож прибираємо теги,
+// а не escape'імо їх у видимий "&lt;p&gt;...&lt;/p&gt;" текст.
+function stripHtml(raw) {
+  return String(raw || '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function getCatalogStore() {
   const siteID = process.env.BLOBS_SITE_ID;
   const token = process.env.BLOBS_TOKEN;
@@ -105,7 +116,7 @@ function itemXml(p) {
     <item>
       <g:id>${p.id}</g:id>
       <title>${xmlEscape(p.name)}</title>
-      <description>${xmlEscape(p.spec || p.name)}</description>
+      <description>${xmlEscape(stripHtml(p.spec) || p.name)}</description>
       <link>${productLink(p)}</link>
       <g:image_link>${xmlEscape(imageLink(p))}</g:image_link>
       <g:availability>${p.available ? 'in stock' : 'out of stock'}</g:availability>

@@ -498,7 +498,7 @@
   const CAT_DRAFT_KEY = 'smartstore_admin_categories_draft';
   const REVIEWS_DRAFT_KEY = 'smartstore_admin_reviews_draft';
   const DEFAULT_ICON = '📦';
-  const ICON_CHOICES = ['📱','📲','🎧','⌚','🛡️','🔌','⚡','🔋','🚗','📦','🧢','👕','🎮','💻','🖱️','📷','🕶️','🔧','🏠','✨'];
+  const ICON_CHOICES = ['📱','📲','🎧','⌚','🛡️','🔌','⚡','🔋','🚗','📦','🧢','👕','🎮','💻','🖱️','⌨️','🔊','📷','🕶️','🔧','🏠','🧳','✨'];
 
   const CATALOG_ENDPOINT = '/.netlify/functions/catalog';
 
@@ -675,6 +675,23 @@
     publishToBackend('products', products);
   }
 
+  // Товар, видалений тут, знову з'явиться після наступної синхронізації з
+  // Rozetka, якщо він і досі є серед активних/неактивних товарів продавця —
+  // це для видалення застарілих/тестових записів, а не постійного приховування
+  // (для постійного приховування без видалення товар лишається в наявності,
+  // або ховається разом з усією категорією на вкладці «Категорії»).
+  function deleteProduct(id){
+    const p = products.find(pr => pr.id === id);
+    if(!p) return;
+    if(!confirm(`Видалити товар «${p.name}» з адмінки й сайту?`)) return;
+    products = products.filter(pr => pr.id !== id);
+    saveDraft();
+    renderTable();
+    renderTopSalesPanel();
+    showToast('Товар видалено, публікую…');
+    publishToBackend('products', products);
+  }
+
   function renderTable(){
     const list = filteredProducts();
     const body = document.getElementById('tbody');
@@ -709,6 +726,7 @@
         <td data-label="">
           <div class="row-actions">
             <button class="icon-btn" title="${p.topSale ? 'Прибрати з Топ продажів' : 'Додати в Топ продажів'}" onclick="toggleTopSale(${p.id})">${p.topSale ? '★' : '☆'}</button>
+            <button class="icon-btn del" title="Видалити товар" onclick="deleteProduct(${p.id})">✕</button>
           </div>
         </td>
       </tr>`;
@@ -819,6 +837,7 @@
         <td data-label="">
           <div class="row-actions">
             <button class="icon-btn" title="Редагувати" onclick="openCategoryModal('${esc(c.name).replace(/'/g,"\\'")}')">✎</button>
+            <button class="icon-btn del" title="Видалити категорію" onclick="deleteCategory('${esc(c.name).replace(/'/g,"\\'")}')">✕</button>
           </div>
         </td>
       </tr>`).join('');
@@ -832,6 +851,25 @@
     renderCategoriesTable();
     buildCatFilter();
     showToast(c.hidden ? `Категорію «${name}» приховано з сайту, публікую…` : `Категорію «${name}» знову показано на сайті, публікую…`);
+    publishToBackend('categories', categories);
+  }
+
+  // Прибирає застарілий/дублікатний запис категорії з адмінки. Якщо в цій
+  // категорії ще лишились товари, вона автоматично з'явиться знову (з
+  // іконкою за замовчуванням) при наступній збірці сайту чи синхронізації з
+  // Rozetka — тут можна видаляти лише порожні або вже нікому не потрібні
+  // категорії.
+  function deleteCategory(name){
+    const count = categoryProductCount(name);
+    const msg = count > 0
+      ? `У категорії «${name}» ще є ${count} товар(ів) — вони не видаляться, але категорія втратить налаштування (іконку/порядок) і може з'явитись знову з іконкою за замовчуванням. Видалити?`
+      : `Видалити категорію «${name}»?`;
+    if(!confirm(msg)) return;
+    categories = categories.filter(x => x.name !== name);
+    saveCategoriesDraft();
+    renderCategoriesTable();
+    buildCatFilter();
+    showToast('Категорію видалено, публікую…');
     publishToBackend('categories', categories);
   }
 
