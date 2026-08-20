@@ -31,7 +31,6 @@
 <header>
   <div class="logo"><img src="logo.jpg" alt="SMART STORE логотип">SMART STORE</div>
   <nav class="links">
-    <a href="#categories">Категорії</a>
     <a href="#products">Товари</a>
     <a href="#why">Чому ми</a>
     <a href="#contacts">Контакти</a>
@@ -43,7 +42,6 @@
 </header>
 <div class="mobile-nav" id="mobileNav">
   <div class="panel">
-    <a href="#categories" onclick="toggleMobileNav()">Категорії</a>
     <a href="#products" onclick="toggleMobileNav()">Товари</a>
     <a href="#why" onclick="toggleMobileNav()">Чому ми</a>
     <a href="#contacts" onclick="toggleMobileNav()">Контакти</a>
@@ -92,17 +90,6 @@
     <p>Товари, які клієнти обирають найчастіше.</p>
   </div>
   <div class="prod-grid" id="topSalesGrid"></div>
-</section>
-
-<section class="block reveal" id="categories">
-  <div class="section-head">
-    <div>
-      <span class="tag-mono eyebrow" style="margin-bottom:10px; display:inline-flex;">Каталог</span>
-      <h2>Категорії товарів</h2>
-    </div>
-    <p>Павербанки, зарядні пристрої, кабелі, навушники та аксесуари для смартфонів і планшетів — обирай за потребою.</p>
-  </div>
-  <div class="cat-grid" id="catGrid"></div>
 </section>
 
 <section class="block reveal" id="products">
@@ -184,11 +171,11 @@
   <div class="cols">
     <div>
       <h4>Каталог</h4>
-      <a href="category/paverbanky.html">Павербанки</a>
+      <a href="category/universalni-mobilni-batarei.html">Універсальні мобільні батареї</a>
       <a href="category/zariadni-prystroi.html">Зарядні пристрої</a>
       <a href="category/kabeli-ta-adaptery.html">Кабелі та адаптери</a>
       <a href="category/navushnyky.html">Навушники</a>
-      <a href="#categories">Усі категорії</a>
+      <a href="#products">Усі категорії</a>
     </div>
     <div>
       <h4>Компанія</h4>
@@ -553,7 +540,6 @@
         if(hiddenCats.size) products = products.filter(p => !hiddenCats.has(p.cat));
       }
       products.forEach(p => { p._models = extractModels(p); p._color = extractColor(p); p._brand = extractBrand(p); });
-      buildCategories();
       buildFilters();
       buildFacets();
       render();
@@ -586,20 +572,6 @@
     const m = {};
     products.forEach(p => m[p.cat] = (m[p.cat]||0)+1);
     return m;
-  }
-
-  function buildCategories(){
-    const counts = catCounts();
-    const grid = document.getElementById('catGrid');
-    const names = CATEGORY_LIST.length
-      ? CATEGORY_LIST.filter(c => !c.hidden).map(c => c.name)
-      : Object.keys(counts);
-    grid.innerHTML = names.map(cat => `
-      <a class="cat-card" href="category/${slugify(cat)}.html">
-        <div class="ic">${CAT_ICONS[cat] || '📦'}</div>
-        <div class="n">${esc(cat)}</div>
-        <div class="c">${counts[cat]||0} товарів</div>
-      </a>`).join('');
   }
 
   function buildFilters(){
