@@ -498,6 +498,46 @@
   }
   const esc = s => (s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
+  // ---------- product description: Rozetka may include a small set of HTML
+  // tags in the description (paragraphs, line breaks, lists, bold/italic).
+  // stripHtml() gives plain text for card previews; sanitizeSpecHtml() keeps
+  // only a safe whitelist of formatting tags for the full description in the
+  // quick-view modal, using the browser's own parser (no innerHTML of the
+  // raw string) so nothing outside that whitelist — scripts, event handler
+  // attributes, iframes, etc. — ever reaches the page.
+  const DESC_ALLOWED_TAGS = new Set(['P','BR','STRONG','B','EM','I','UL','OL','LI']);
+  function stripHtml(raw){
+    const tmp = document.createElement('div');
+    tmp.innerHTML = raw || '';
+    return (tmp.textContent || '').replace(/\s+/g, ' ').trim();
+  }
+  function sanitizeSpecHtml(raw){
+    if(!raw) return '';
+    const tmp = document.createElement('div');
+    tmp.innerHTML = raw;
+    (function clean(node){
+      [...node.childNodes].forEach(child => {
+        if(child.nodeType === 1){
+          if(!DESC_ALLOWED_TAGS.has(child.tagName)){
+            while(child.firstChild) node.insertBefore(child.firstChild, child);
+            node.removeChild(child);
+            return;
+          }
+          [...child.attributes].forEach(attr => child.removeAttribute(attr.name));
+          clean(child);
+        }
+      });
+    })(tmp);
+    return tmp.innerHTML;
+  }
+  function characteristicsHtml(items){
+    const rows = (items || []).filter(it => it && it.name && String(it.value || '').trim());
+    if(!rows.length) return '';
+    return `<table class="pdp-characteristics"><tbody>${
+      rows.map(r => `<tr><th>${esc(r.name)}</th><td>${esc(String(r.value))}</td></tr>`).join('')
+    }</tbody></table>`;
+  }
+
   // ---------- slug helper (must match Python build script mapping) ----------
   const UA_MAP = {а:'a',б:'b',в:'v',г:'h',ґ:'g',д:'d',е:'e',є:'ie',ж:'zh',з:'z',и:'y',і:'i',ї:'i',й:'i',к:'k',л:'l',м:'m',н:'n',о:'o',п:'p',р:'r',с:'s',т:'t',у:'u',ф:'f',х:'kh',ц:'ts',ч:'ch',ш:'sh',щ:'shch',ь:'',ю:'iu',я:'ia'};
   function slugify(str){
@@ -656,7 +696,7 @@
       <div class="prod-body">
         <div class="prod-cat">${esc(p.cat)}</div>
         <div class="prod-name">${esc(p.name)}</div>
-        <div class="prod-spec">${esc(p.spec || '')}</div>
+        <div class="prod-spec">${esc(stripHtml(p.spec || '').slice(0, 90))}</div>
         <div class="prod-foot">
           ${priceBlockHtml(p)}
           <button class="add-btn" onclick="event.preventDefault(); event.stopPropagation(); addToCart(${p.id})">${ICON_CART}Купити</button>
@@ -1103,7 +1143,8 @@
         ${modelsRow}
         ${colorRow}
       </div>
-      <div class="product-spec-lg">${esc(p.spec || 'Опис уточнюйте у менеджера.')}</div>
+      <div class="product-spec-lg">${p.spec ? sanitizeSpecHtml(p.spec) : 'Опис уточнюйте у менеджера.'}</div>
+      ${characteristicsHtml(p.characteristics)}
       <div class="product-buy-row">
         <div>
           ${discountPct(p) > 0 ? `<div class="pdp-old-price">${fmt(p.oldPrice)}</div>` : ''}

@@ -17,6 +17,7 @@ import html
 import urllib.request
 import urllib.error
 from datetime import date
+from html.parser import HTMLParser
 
 SITE_URL = "https://smartstoreua.com"
 
@@ -91,6 +92,79 @@ def slugify(s: str) -> str:
 
 def esc(s):
     return html.escape(s or "", quote=True)
+
+
+# ---------- product description: Rozetka allows a small set of HTML tags in
+# description/description_ua (paragraphs, line breaks, lists, bold/italic).
+# strip_html() gives plain text (for <meta description>, JSON-LD, card
+# snippets); sanitize_desc_html() keeps only a safe whitelist of formatting
+# tags for the main product-page description block, so real paragraphs/lists
+# render instead of showing literal "<p>...</p>" text or trusting raw markup.
+_DESC_TAG_RE = re.compile(r"<[^>]+>")
+_DESC_ALLOWED_TAGS = {"p", "br", "strong", "b", "em", "i", "ul", "ol", "li"}
+_DESC_VOID_TAGS = {"br"}
+
+
+def strip_html(raw: str) -> str:
+    text = html.unescape(_DESC_TAG_RE.sub(" ", raw or ""))
+    return re.sub(r"\s+", " ", text).strip()
+
+
+class _DescSanitizer(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.out = []
+        self.stack = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag in _DESC_ALLOWED_TAGS:
+            self.out.append(f"<{tag}>")
+            if tag not in _DESC_VOID_TAGS:
+                self.stack.append(tag)
+
+    def handle_startendtag(self, tag, attrs):
+        if tag in _DESC_ALLOWED_TAGS:
+            self.out.append("<br>" if tag in _DESC_VOID_TAGS else f"<{tag}></{tag}>")
+
+    def handle_endtag(self, tag):
+        if tag not in _DESC_ALLOWED_TAGS or tag not in self.stack:
+            return
+        while self.stack and self.stack[-1] != tag:
+            self.out.append(f"</{self.stack.pop()}>")
+        if self.stack:
+            self.stack.pop()
+            self.out.append(f"</{tag}>")
+
+    def handle_data(self, data):
+        self.out.append(html.escape(data, quote=True))
+
+    def close(self):
+        super().close()
+        while self.stack:
+            self.out.append(f"</{self.stack.pop()}>")
+
+
+def sanitize_desc_html(raw: str) -> str:
+    if not raw:
+        return ""
+    parser = _DescSanitizer()
+    parser.feed(raw)
+    parser.close()
+    return "".join(parser.out)
+
+
+def characteristics_html(items):
+    """Renders the Rozetka "details" (product characteristics/specs) as a
+    simple name/value table on the product page. `items` is a list of
+    {"name": ..., "value": ...} dicts, already resolved server-side during
+    Rozetka sync (see netlify/functions/rozetka-sync.js)."""
+    rows = [it for it in (items or []) if it.get("name") and str(it.get("value") or "").strip()]
+    if not rows:
+        return ""
+    rows_html = "".join(
+        f'<tr><th>{esc(r["name"])}</th><td>{esc(str(r["value"]))}</td></tr>' for r in rows
+    )
+    return f'<table class="pdp-characteristics"><tbody>{rows_html}</tbody></table>'
 
 
 def fmt_price(n):
@@ -558,7 +632,8 @@ def render_product_page(p, products, cat_slugs):
     in_stock = p.get("available", True)
     models_row = ""
     price_txt = fmt_price(p["price"])
-    desc = (p.get("spec") or "").strip()
+    desc = strip_html(p.get("spec") or "")
+    desc_html = sanitize_desc_html(p.get("spec") or "")
     meta_desc = (desc[:157] + "…") if len(desc) > 160 else desc
     if not meta_desc:
         meta_desc = f"{p['name']} — купити в SMART STORE. Ціна {price_txt}. Доставка по Україні."
@@ -625,7 +700,7 @@ def render_product_page(p, products, cat_slugs):
           <div class="prod-body">
             <div class="prod-cat">{esc(r['cat'])}</div>
             <div class="prod-name">{esc(r['name'])}</div>
-            <div class="prod-spec">{esc((r.get('spec') or '')[:90])}</div>
+            <div class="prod-spec">{esc(strip_html(r.get('spec') or '')[:90])}</div>
             <div class="prod-foot">
               {price_block_html(r)}
               <button class="add-btn" onclick="event.preventDefault(); event.stopPropagation(); pageAddToCart({r['id']})">{ICON_CART}Купити</button>
@@ -689,7 +764,8 @@ def render_product_page(p, products, cat_slugs):
     <h1>{esc(p['name'])}</h1>
     <div class="pdp-meta"><div>Категорія: <b>{esc(p['cat'])}</b></div><div>Артикул: <b>SS-{p['id']}</b></div></div>
     {pdp_price_html(p)}
-    <div class="pdp-spec">{esc(desc) if desc else 'Опис уточнюйте у менеджера.'}</div>
+    <div class="pdp-spec">{desc_html if desc else 'Опис уточнюйте у менеджера.'}</div>
+    {characteristics_html(p.get("characteristics"))}
     <div class="pdp-cta">
       <button class="btn btn-primary" onclick="pageBuyNow({p['id']})">Купити зараз</button>
       <button class="btn btn-ghost" onclick="pageAddToCart({p['id']})">Додати в кошик</button>
@@ -751,7 +827,7 @@ def render_category_page(cat, products_in_cat, all_counts, cat_slugs):
           <div class="prod-body">
             <div class="prod-cat">{esc(r['cat'])}</div>
             <div class="prod-name">{esc(r['name'])}</div>
-            <div class="prod-spec">{esc((r.get('spec') or '')[:90])}</div>
+            <div class="prod-spec">{esc(strip_html(r.get('spec') or '')[:90])}</div>
             <div class="prod-foot">
               {price_block_html(r)}
               <button class="add-btn" onclick="event.preventDefault(); event.stopPropagation(); pageAddToCart({r['id']})">{ICON_CART}Купити</button>

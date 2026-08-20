@@ -70,11 +70,19 @@ async function getSavedRozetkaToken() {
 // ---------------------------------------------------------------------------
 // Отримання списку товарів продавця: GET /items/search, з пагінацією за
 // _meta.pageCount (сервер сам вирішує, скільки товарів на сторінці — це не
-// параметр запиту). item_active=1 — тягнемо лише активні (опубліковані)
-// товари, а не заблоковані/на модерації. expand додає опис і промо-ціну,
-// які інакше API не повертає.
+// параметр запиту). expand додає опис, промо-ціну й характеристики, які
+// інакше API не повертає.
+//
+// item_active — це прапорець "активний/опублікований на Rozetka" і НЕ те
+// саме, що "є в наявності": Rozetka сама автоматично переводить товар у
+// неактивні (item_active=0), коли stock_quantity стає 0 (якщо в кабінеті
+// продавця увімкнена автопауза при закінченні залишку — типова поведінка).
+// Якщо тягнути лише item_active=1, такі товари випадають з вивантаження ще
+// на цьому кроці — і повністю зникають з сайту замість того, щоб просто
+// показуватись з позначкою "Немає в наявності". Тож запитуємо ОБИДВА
+// набори (активні й неактивні) і об'єднуємо їх.
 // ---------------------------------------------------------------------------
-async function fetchAllRozetkaItems(token) {
+async function fetchItemsByActiveFlag(token, itemActive) {
   const items = [];
   let page = 1;
   const MAX_PAGES = 1000; // запобіжник від нескінченного циклу
@@ -83,14 +91,14 @@ async function fetchAllRozetkaItems(token) {
     let res;
     try {
       res = await fetch(
-        `${ROZETKA_API_BASE}/items/search?item_active=1&expand=description,description_ua,price_promo,group_item&page=${page}`,
+        `${ROZETKA_API_BASE}/items/search?item_active=${itemActive}&expand=description,description_ua,price_promo,group_item,details&page=${page}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
     } catch (e) {
       // Помилки на цьому рівні (напр. "The string did not match the
       // expected pattern") означають проблему з САМИМ запитом — найчастіше
       // невалідний символ у токені або неправильний URL/шлях ендпоінта.
-      throw new Error(`[items:request] Не вдалось виконати запит до Rozetka (сторінка ${page}): ${(e && e.message) || e}`);
+      throw new Error(`[items:request] Не вдалось виконати запит до Rozetka (сторінка ${page}, item_active=${itemActive}): ${(e && e.message) || e}`);
     }
     if (!res.ok) {
       const text = await res.text().catch(() => '');
@@ -118,6 +126,86 @@ async function fetchAllRozetkaItems(token) {
   }
 
   return items;
+}
+
+async function fetchAllRozetkaItems(token) {
+  const [active, inactive] = await Promise.all([
+    fetchItemsByActiveFlag(token, 1),
+    fetchItemsByActiveFlag(token, 0),
+  ]);
+  const byId = new Map();
+  for (const item of [...active, ...inactive]) {
+    byId.set(item.id, item);
+  }
+  return [...byId.values()];
+}
+
+// ---------------------------------------------------------------------------
+// Характеристики товару. items/search (з expand=details) повертає лише
+// {featureId: "value"} — без людських назв характеристик. Назви й довідники
+// значень тягнемо окремо через /market-categories/category-options
+// (по одному запиту на catalog_id, з кешем на весь прогін синхронізації).
+// ---------------------------------------------------------------------------
+const categoryOptionsCache = new Map();
+
+async function fetchCategoryOptions(token, categoryId) {
+  if (categoryOptionsCache.has(categoryId)) return categoryOptionsCache.get(categoryId);
+  let attrs = [];
+  try {
+    const res = await fetch(
+      `${ROZETKA_API_BASE}/market-categories/category-options?category_id=${categoryId}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success !== false && Array.isArray(data.content)) attrs = data.content;
+    }
+  } catch (e) {
+    // best effort — якщо довідник не підтягнувся, товар лишиться без
+    // характеристик, а не зламає всю синхронізацію
+  }
+  // paramId -> { name, valuesById: { value_id -> value_name } }
+  const map = new Map();
+  for (const a of attrs) {
+    if (a.id === undefined || a.id === null) continue;
+    if (!map.has(a.id)) map.set(a.id, { name: a.name || '', valuesById: new Map() });
+    if (a.value_id !== undefined && a.value_id !== null) {
+      map.get(a.id).valuesById.set(String(a.value_id), a.value_name);
+    }
+  }
+  categoryOptionsCache.set(categoryId, map);
+  return map;
+}
+
+async function prefetchCategoryOptions(token, items) {
+  const categoryIds = [...new Set(
+    items
+      .filter((item) => item.details && typeof item.details === 'object')
+      .map((item) => item.catalog_category && item.catalog_category.id)
+      .filter(Boolean)
+  )];
+  await Promise.all(categoryIds.map((id) => fetchCategoryOptions(token, id)));
+}
+
+// Синхронна, бо викликається ПІСЛЯ prefetchCategoryOptions — довідники для
+// всіх потрібних catalog_id вже лежать у categoryOptionsCache.
+function buildCharacteristics(item) {
+  const details = item.details && typeof item.details === 'object' ? item.details : null;
+  if (!details) return [];
+  const categoryId = item.catalog_category && item.catalog_category.id;
+  if (!categoryId) return [];
+  const paramMap = categoryOptionsCache.get(categoryId);
+  if (!paramMap) return [];
+  const out = [];
+  for (const [paramId, rawValue] of Object.entries(details)) {
+    if (rawValue === null || rawValue === undefined || String(rawValue).trim() === '') continue;
+    const param = paramMap.get(Number(paramId)) || paramMap.get(paramId);
+    const name = (param && param.name) || '';
+    if (!name) continue;
+    const resolved = (param && param.valuesById.get(String(rawValue))) || rawValue;
+    out.push({ name, value: String(resolved) });
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -150,6 +238,10 @@ function mapRozetkaItemToProduct(item, existingById) {
     images,
     available: Number(item.stock_quantity) > 0,
     spec: item.description_ua || item.description || (existing && existing.spec) || '',
+    characteristics: (() => {
+      const built = buildCharacteristics(item);
+      return built.length ? built : (existing && existing.characteristics) || [];
+    })(),
     // Rozetka Seller API не повертає бренд/виробника окремим полем у
     // items/search — лишаємо те, що вже було збережено на сайті для цього ID.
     brand: (existing && existing.brand) || '',
@@ -169,6 +261,44 @@ async function triggerBuild() {
   } catch (e) {
     return false;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Автопідбір іконки для щойно створеної категорії (Rozetka назв категорій
+// не постачає з готовою іконкою). Це лише СТАРТОВЕ значення — в адмінці на
+// вкладці «Категорії» іконку завжди можна змінити вручну через emoji-picker,
+// і ручний вибір після цього більше не перезаписується (див. categoryMetaByName
+// вище — іконка існуючої категорії завжди береться з того, що вже збережено).
+// ---------------------------------------------------------------------------
+const CATEGORY_ICON_KEYWORDS = [
+  [['павербанк', 'powerbank', 'battery pack'], '🔋'],
+  [['адаптер', 'зарядн', 'блок живлення', 'charger'], '⚡'],
+  [['кабель', 'cable', 'шнур'], '🔌'],
+  [['навушник', 'гарнітур', 'headphone', 'earbud'], '🎧'],
+  [['годинник', 'watch', 'браслет'], '⌚'],
+  [['чохол', 'бампер', 'case', 'cover'], '🛡️'],
+  [['колонк', 'speaker', 'акустик'], '🔊'],
+  [['мишк', 'mouse'], '🖱️'],
+  [['клавіатур', 'keyboard'], '⌨️'],
+  [['камер', 'фото', 'camera'], '📷'],
+  [['окуляр', 'glasses'], '🕶️'],
+  [['сумк', 'рюкзак', 'bag', 'backpack'], '🧳'],
+  [['телефон', 'смартфон', 'phone'], '📱'],
+  [['планшет', 'tablet'], '📲'],
+  [['ноутбук', 'laptop', 'комп\'ютер', 'computer'], '💻'],
+  [['ігр', 'game', 'controller', 'геймпад'], '🎮'],
+  [['тримач', 'підставк', 'holder', 'stand'], '🔧'],
+  [['авто', 'car', 'машин'], '🚗'],
+  [['дім', 'будинок', 'home', 'house'], '🏠'],
+  [['одяг', 'футболк', 'кепк', 'clothes'], '👕'],
+];
+
+function suggestCategoryIcon(name) {
+  const n = String(name || '').toLowerCase();
+  for (const [keywords, icon] of CATEGORY_ICON_KEYWORDS) {
+    if (keywords.some((kw) => n.includes(kw))) return icon;
+  }
+  return '📦';
 }
 
 exports.handler = async (event) => {
@@ -194,6 +324,7 @@ exports.handler = async (event) => {
 
     const token = await getSavedRozetkaToken();
     const rozetkaItems = await fetchAllRozetkaItems(token);
+    await prefetchCategoryOptions(token, rozetkaItems);
     const merged = rozetkaItems.map((item) => mapRozetkaItemToProduct(item, existingById));
 
     // Категорії повністю перебудовуються зі списку товарів Rozetka — це і
@@ -212,7 +343,7 @@ exports.handler = async (event) => {
         const meta = categoryMetaByName.get(name);
         return {
           name,
-          icon: (meta && meta.icon) || '📦',
+          icon: (meta && meta.icon) || suggestCategoryIcon(name),
           hidden: !!(meta && meta.hidden),
           order: meta ? meta.order : currentCategories.length + seenIndex,
         };
