@@ -1,67 +1,78 @@
 // netlify/functions/rozetka-sync.js
 //
-// Планова (scheduled) Netlify Function: раз на певний час забирає ваші товари
-// з Rozetka Seller API і оновлює каталог сайту (Netlify Blobs) — так само,
-// як це робить адмінка через netlify/functions/catalog.js, але автоматично.
+// Запускається кнопкою «Синхронізувати з Rozetka» в адмінці (POST-запит із
+// дійсною сесією адміна). Забирає токен, збережений через
+// netlify/functions/rozetka-settings.js, тягне товари з Rozetka Marketplace
+// API і оновлює каталог сайту (той самий Netlify Blobs store, який читає
+// build.py / catalog.js), після чого запускає пересборку сайту.
 //
-// ‼️ ВАЖЛИВО ПЕРЕД ЗАПУСКОМ — прочитайте розділ "ЩО ТРЕБА ПЕРЕВІРИТИ" внизу
-// файлу. Автентифікацію (крок 1) я підтвердив по офіційній документації
-// Rozetka. Але сам ендпоінт списку товарів (крок 2) Rozetka показує лише
-// всередині інтерактивної документації (https://api-seller.rozetka.com.ua/apidoc/),
-// яка рендериться через JS і я не зміг її "прочитати" програмно — тому там
-// нижче стоїть максимально ймовірний варіант за патерном інших методів API,
-// але його треба звірити з документацією вручну, залогінившись у кабінет
-// продавця, перш ніж покладатися на автоматичний запуск.
+// ‼️ ЩО ТРЕБА ЗВІРИТИ ПЕРЕД ПЕРШИМ ЗАПУСКОМ (позначено TODO нижче):
+// сам ендпоінт для отримання СПИСКУ товарів і точні назви полів у відповіді.
+// Токен уже готовий (Безпека API → Згенерувати API токен), автентифікація
+// через логін/пароль тут більше не потрібна — токен використовується
+// напряму як Bearer.
 
 const { getStore } = require('@netlify/blobs');
+const { isSessionValid } = require('./lib/session');
 
 const ROZETKA_API_BASE = 'https://api-seller.rozetka.com.ua';
 
-// ---------------------------------------------------------------------------
-// 1. Автентифікація в Rozetka Seller API
-//    Підтверджено документацією: логін + пароль (пароль у base64), токен
-//    живе 24 години, далі використовується як Bearer token.
-// ---------------------------------------------------------------------------
-async function getRozetkaToken() {
-  const login = process.env.ROZETKA_LOGIN;
-  const password = process.env.ROZETKA_PASSWORD;
-  if (!login || !password) {
-    throw new Error('Не задано ROZETKA_LOGIN / ROZETKA_PASSWORD у змінних середовища Netlify');
+function json(statusCode, data) {
+  return {
+    statusCode,
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'no-store',
+    },
+    body: JSON.stringify(data),
+  };
+}
+
+function getSettingsStore() {
+  const siteID = process.env.BLOBS_SITE_ID;
+  const token = process.env.BLOBS_TOKEN;
+  const opts = { name: 'settings', consistency: 'strong' };
+  if (siteID && token) {
+    opts.siteID = siteID;
+    opts.token = token;
   }
+  return getStore(opts);
+}
 
-  // TODO: перевірте точний шлях ендпоінта авторизації в апі-доці
-  // (розділ "Authorization" → "PostSites" або аналогічний).
-  const res = await fetch(`${ROZETKA_API_BASE}/sites`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      login,
-      password: Buffer.from(password, 'utf8').toString('base64'),
-    }),
-  });
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`Rozetka auth failed: ${res.status} ${text}`);
+function getCatalogStore() {
+  const siteID = process.env.BLOBS_SITE_ID;
+  const token = process.env.BLOBS_TOKEN;
+  const opts = { name: 'catalog', consistency: 'strong' };
+  if (siteID && token) {
+    opts.siteID = siteID;
+    opts.token = token;
   }
+  return getStore(opts);
+}
 
-  const data = await res.json();
-  // TODO: перевірте реальну назву поля з токеном у відповіді (тут — здогад).
-  const token = data.token || data.access_token || (data.content && data.content.token);
+async function getSavedRozetkaToken() {
+  const store = getSettingsStore();
+  const rec = await store.get('rozetkaToken', { type: 'json' });
+  const raw = rec && rec.data && rec.data.token;
+  if (!raw) {
+    throw new Error('Токен Rozetka не збережено — вставте його на вкладці «Rozetka» в адмінці й натисніть «Зберегти».');
+  }
+  // Захисне очищення: навіть якщо токен зберігли до цього виправлення і в
+  // ньому лишився прихований символ (переніс рядка, пробіл), заголовок
+  // Authorization все одно сформується коректно.
+  const token = String(raw).replace(/[\s\u0000-\u001F\u007F]+/g, '');
   if (!token) {
-    throw new Error('Rozetka auth: токен не знайдено у відповіді: ' + JSON.stringify(data));
+    throw new Error('Збережений токен виявився порожнім після очищення — збережіть токен наново.');
   }
   return token;
 }
 
 // ---------------------------------------------------------------------------
-// 2. Отримання списку товарів продавця
-//    ⚠️ Ендпоінт нижче НЕ підтверджений напряму — звірте з
-//    https://api-seller.rozetka.com.ua/apidoc/ (розділ "Items"), увійшовши
-//    у ваш кабінет продавця. Судячи з інших відомих методів (наприклад,
-//    /items/{id} для одного товару, /items-commissions/search для комісій),
-//    список товарів імовірно віддається через /items/search або /items
-//    з пагінацією (page / page_size чи offset / limit).
+// Отримання списку товарів продавця
+// ⚠️ Ендпоінт нижче НЕ підтверджений напряму з документацією (вона рендериться
+// через JS і вимагає входу в кабінет продавця). Звірте з
+// https://api-seller.rozetka.com.ua/apidoc/ (розділ "Items") точний шлях і
+// параметри пагінації, якщо цей варіант поверне помилку.
 // ---------------------------------------------------------------------------
 async function fetchAllRozetkaItems(token) {
   const items = [];
@@ -69,33 +80,43 @@ async function fetchAllRozetkaItems(token) {
   const pageSize = 100;
 
   while (true) {
-    const res = await fetch(
-      `${ROZETKA_API_BASE}/items/search?page=${page}&page_size=${pageSize}`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
+    let res;
+    try {
+      res = await fetch(
+        `${ROZETKA_API_BASE}/items/search?page=${page}&page_size=${pageSize}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+    } catch (e) {
+      // Помилки на цьому рівні (напр. "The string did not match the
+      // expected pattern") означають проблему з САМИМ запитом — найчастіше
+      // невалідний символ у токені або неправильний URL/шлях ендпоінта.
+      throw new Error(`[items:request] Не вдалось виконати запит до Rozetka (сторінка ${page}): ${(e && e.message) || e}`);
+    }
     if (!res.ok) {
       const text = await res.text().catch(() => '');
-      throw new Error(`Rozetka items fetch failed: ${res.status} ${text}`);
+      throw new Error(`[items:response ${res.status}] ${text || 'Rozetka повернула помилку без тексту'}`);
     }
-    const data = await res.json();
-    // TODO: перевірте реальну структуру відповіді — тут здогад про поле "content".
+    let data;
+    try {
+      data = await res.json();
+    } catch (e) {
+      throw new Error(`[items:parse] Відповідь Rozetka не є коректним JSON: ${(e && e.message) || e}`);
+    }
+    // TODO: перевірте реальну назву поля-масиву у відповіді (тут — здогад).
     const batch = data.content || data.items || data.data || [];
     items.push(...batch);
 
-    if (batch.length < pageSize) break; // остання сторінка
+    if (batch.length < pageSize) break;
     page += 1;
-    if (page > 200) break; // запобіжник від нескінченного циклу
+    if (page > 200) break; // запобіжник
   }
 
   return items;
 }
 
 // ---------------------------------------------------------------------------
-// 3. Перетворення товару Rozetka у формат вашого сайту
-//    Поля нижче (name / price / stock / images / description / category /
-//    vendor) — типові назви для такого роду API, але ЗВІРТЕ з реальною
-//    відповіддю /items/{id}, яку легко подивитись вручну (є приклад запиту
-//    в документації: GET /items/{id}).
+// Перетворення товару Rozetka у формат вашого сайту.
+// TODO: звірте реальні назви полів item.* з фактичною відповіддю API.
 // ---------------------------------------------------------------------------
 function mapRozetkaItemToProduct(item, existingById) {
   const id = item.id || item.item_id;
@@ -106,10 +127,6 @@ function mapRozetkaItemToProduct(item, existingById) {
     name: item.name || item.title || (existing && existing.name) || '',
     price: Number(item.price) || 0,
     cur: 'UAH',
-    // Категорію/групу Rozetka називає інакше, ніж ваш сайт (Павербанки/
-    // Адаптери/Кабелі) — тут просто переносимо назву категорії Rozetka.
-    // Якщо потрібне точне узгодження з існуючими 3 категоріями сайту,
-    // варто зробити ручну карту відповідності category_id → cat/group.
     cat: item.category_name || (existing && existing.cat) || '',
     group: item.group_name || (existing && existing.group) || '',
     img: (Array.isArray(item.images) && item.images[0]) || item.image || (existing && existing.img) || '',
@@ -117,20 +134,6 @@ function mapRozetkaItemToProduct(item, existingById) {
     spec: item.description || (existing && existing.spec) || '',
     brand: item.vendor || item.brand || (existing && existing.brand) || '',
   };
-}
-
-// ---------------------------------------------------------------------------
-// 4. Запис у Netlify Blobs (той самий стор, що читає build.py / catalog.js)
-// ---------------------------------------------------------------------------
-function getCatalogStore() {
-  const siteID = process.env.BLOBS_SITE_ID;
-  const token = process.env.BLOBS_TOKEN;
-  const opts = { name: 'catalog', consistency: 'strong' };
-  if (siteID && token) {
-    opts.siteID = siteID;
-    opts.token = token;
-  }
-  return getStore(opts);
 }
 
 async function triggerBuild() {
@@ -144,77 +147,62 @@ async function triggerBuild() {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Головна функція
-// ---------------------------------------------------------------------------
-exports.handler = async () => {
+exports.handler = async (event) => {
   try {
-    const store = getCatalogStore();
+    // Ручний запуск — тільки з адмінки, тільки з дійсною сесією.
+    if (event.httpMethod !== 'POST') {
+      return json(405, { error: 'Метод не підтримується' });
+    }
+    if (!isSessionValid(event)) {
+      return json(401, { error: 'Сесія недійсна або закінчилась — увійдіть в адмінку знову' });
+    }
 
-    // Читаємо поточні товари сайту, щоб не втратити поля, яких немає в Rozetka
-    // (наприклад, розлогий "spec"-опис, якщо на Rozetka він коротший).
-    const currentRec = await store.get('products', { type: 'json' });
+    const catalogStore = getCatalogStore();
+    const currentRec = await catalogStore.get('products', { type: 'json' });
     const currentProducts = (currentRec && currentRec.data) || [];
     const existingById = new Map(currentProducts.map((p) => [p.id, p]));
 
-    const token = await getRozetkaToken();
-    const rozetkaItems = await fetchAllRozetkaItems(token);
+    const currentCategoriesRec = await catalogStore.get('categories', { type: 'json' });
+    const currentCategories = (currentCategoriesRec && currentCategoriesRec.data) || [];
+    const iconByName = new Map(currentCategories.map((c) => [c.name, c.icon]));
 
+    const token = await getSavedRozetkaToken();
+    const rozetkaItems = await fetchAllRozetkaItems(token);
     const merged = rozetkaItems.map((item) => mapRozetkaItemToProduct(item, existingById));
 
-    await store.setJSON('products', { data: merged, updatedAt: new Date().toISOString() });
+    // Категорії повністю перебудовуються зі списку товарів Rozetka — це і
+    // прибирає дублікати/застарілі категорії, яких уже немає серед товарів.
+    // Порядок з'яви — за першим входженням у список товарів. Іконку лишаємо
+    // ту саму, якщо категорія з такою назвою вже існувала на сайті, інакше —
+    // нейтральна іконка за замовчуванням.
+    const seenCategoryNames = [];
+    for (const p of merged) {
+      if (p.cat && !seenCategoryNames.includes(p.cat)) seenCategoryNames.push(p.cat);
+    }
+    const categories = seenCategoryNames.map((name) => ({
+      name,
+      icon: iconByName.get(name) || '📦',
+    }));
+
+    // Повна заміна (не додавання) — товари й категорії, яких немає в
+    // поточному вивантаженні з Rozetka, зі списку зникають, щоб уникнути
+    // дублікатів.
+    await catalogStore.setJSON('products', { data: merged, updatedAt: new Date().toISOString() });
+    await catalogStore.setJSON('categories', { data: categories, updatedAt: new Date().toISOString() });
+
+    // Записуємо час останньої синхронізації, щоб показати в адмінці.
+    const settingsStore = getSettingsStore();
+    const tokenRec = await settingsStore.get('rozetkaToken', { type: 'json' });
+    await settingsStore.setJSON('rozetkaToken', {
+      ...(tokenRec && tokenRec.data),
+      lastSyncAt: new Date().toISOString(),
+      lastSyncCount: merged.length,
+    });
+
     const published = await triggerBuild();
 
-    console.log(`Rozetka sync: оновлено ${merged.length} товарів, build запущено: ${published}`);
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ ok: true, count: merged.length, published }),
-    };
+    return json(200, { ok: true, count: merged.length, categoryCount: categories.length, published });
   } catch (err) {
-    console.error('Rozetka sync error:', err);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ ok: false, error: String((err && err.message) || err) }),
-    };
+    return json(500, { error: String((err && err.message) || err) });
   }
 };
-
-// Автоматичний запуск за розкладом (Netlify Scheduled Functions).
-// Приклад: щогодини. Синтаксис — звичайний cron.
-exports.config = {
-  schedule: '0 * * * *',
-};
-
-// =================================================================================
-// ЩО ТРЕБА ПЕРЕВІРИТИ / НАЛАШТУВАТИ ПЕРЕД ЗАПУСКОМ
-// =================================================================================
-//
-// 1. Покладіть цей файл у netlify/functions/rozetka-sync.js вашого репозиторію.
-//
-// 2. У Netlify -> Site settings -> Environment variables додайте:
-//    - ROZETKA_LOGIN        — логін від кабінету продавця Rozetka
-//    - ROZETKA_PASSWORD     — пароль від кабінету продавця Rozetka
-//    - BLOBS_SITE_ID        — той самий, що вже використовує catalog.js
-//    - BLOBS_TOKEN          — той самий, що вже використовує catalog.js
-//    - BUILD_HOOK_URL       — той самий, що вже використовує catalog.js
-//
-// 3. Обов'язково звірте з живою документацією https://api-seller.rozetka.com.ua/apidoc/
-//    (потрібен вхід у кабінет продавця, документація рендериться через JS,
-//    тому я не зміг прочитати її автоматично):
-//    - Точний шлях і назву полів для авторизації (крок 1: getRozetkaToken).
-//    - Точний ендпоінт для отримання СПИСКУ товарів, не одного товару
-//      (крок 2: fetchAllRozetkaItems) — можливо, це /items/search,
-//      /items/list, або щось інше з пагінацією.
-//    - Точні назви полів товару у відповіді (крок 3: mapRozetkaItemToProduct) —
-//      назва, ціна, залишок, фото, опис, категорія, бренд.
-//
-// 4. Після виправлення TODO — задеплойте і перевірте вручну, викликавши функцію
-//    напряму (наприклад, через Netlify CLI: netlify functions:invoke rozetka-sync),
-//    перш ніж покладатись на розклад.
-//
-// 5. Розклад '0 * * * *' (у exports.config вище) = щогодини. Можна рідше,
-//    наприклад раз на 6 годин, якщо оновлення цін/наявності не потребує
-//    великої частоти — подивіться синтаксис cron-виразів для потрібного вам
-//    інтервалу.
-// =================================================================================
