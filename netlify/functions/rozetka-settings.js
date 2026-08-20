@@ -71,7 +71,7 @@ exports.handler = async (event) => {
       }
       const rec = await store.get(TOKEN_KEY, { type: 'json' });
       const existing = (rec && rec.data) || {};
-      await store.setJSON(TOKEN_KEY, { ...existing, token, updatedAt: new Date().toISOString() });
+      await store.setJSON(TOKEN_KEY, { data: { ...existing, token }, updatedAt: new Date().toISOString() });
       return json(200, { ok: true, tokenPreview: `••••${token.slice(-4)}` });
     }
 
