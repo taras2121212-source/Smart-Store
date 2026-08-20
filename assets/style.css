@@ -112,9 +112,8 @@
 
   /* ---------- hero ---------- */
   .hero{
-    padding:9vh 6vw 8vh; display:grid; grid-template-columns:1.1fr 0.9fr; gap:4vw; align-items:center;
+    padding:9vh 6vw 8vh;
   }
-  @media (max-width:820px){ .hero{ grid-template-columns:1fr; } .hero-visual{ display:none; } }
   .eyebrow{
     color:var(--teal); font-size:13px; text-transform:uppercase; letter-spacing:0.14em; margin-bottom:18px;
     display:flex; align-items:center; gap:10px;
@@ -155,26 +154,6 @@
   /* ---------- scroll reveal ---------- */
   .reveal{ opacity:0; transform:translateY(26px); transition:opacity .7s ease, transform .7s ease; }
   .reveal.in-view{ opacity:1; transform:translateY(0); }
-
-  .hero-visual{ position:relative; height:420px; display:flex; align-items:center; justify-content:center; }
-  .charge-orb{
-    width:300px; height:300px; border-radius:50%;
-    background: radial-gradient(circle at 35% 30%, var(--panel-alt), var(--panel) 70%);
-    border:1px solid var(--line);
-    display:flex; align-items:center; justify-content:center;
-    position:relative;
-  }
-  .charge-orb .pct{ font-size:56px; font-weight:700; font-family:'JetBrains Mono', monospace; }
-  .charge-orb .pct span{ font-size:22px; color:var(--muted); }
-  svg.ring-svg{ position:absolute; inset:-14px; transform:rotate(-90deg); }
-  .orbit-tag{
-    position:absolute; background:var(--panel-alt); border:1px solid var(--line);
-    padding:8px 14px; border-radius:30px; font-size:12px; color:var(--muted);
-    display:flex; align-items:center; gap:6px;
-  }
-  .orbit-tag .sw{ width:6px; height:6px; border-radius:50%; }
-  .ot1{ top:6%; left:-4%; } .ot1 .sw{ background:var(--amber); }
-  .ot2{ bottom:10%; right:-6%; } .ot2 .sw{ background:var(--teal); }
 
   /* ---------- trust strip ---------- */
   .trust{
@@ -326,16 +305,6 @@
   .review .stars{ color:var(--amber); font-size:13px; margin-bottom:14px; letter-spacing:2px;}
   .review p{ font-size:14px; color:var(--text); margin-bottom:16px; }
   .review .who{ font-size:12px; color:var(--muted); }
-
-  /* ---------- brands (in the same row as stats) ---------- */
-  .brands-group{ display:flex; align-items:center; gap:34px; flex-wrap:wrap; }
-  .brand-logo{
-    color:var(--muted); font-family:'Space Grotesk', sans-serif; font-weight:700;
-    font-size:19px; letter-spacing:.01em; cursor:pointer; line-height:1;
-    filter:grayscale(1); opacity:.75;
-    transition:color .22s ease, transform .22s ease, filter .22s ease, opacity .22s ease;
-  }
-  .brand-logo:hover{ color:var(--text); filter:grayscale(0); opacity:1; transform:translateY(-3px); }
 
   /* ---------- stats (animated counters) ---------- */
   .stats-row{ display:flex; align-items:center; justify-content:center; gap:44px; padding:44px 6vw; border-top:1px solid var(--line); border-bottom:1px solid var(--line); flex-wrap:wrap; }
