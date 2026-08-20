@@ -53,9 +53,16 @@ function getCatalogStore() {
 async function getSavedRozetkaToken() {
   const store = getSettingsStore();
   const rec = await store.get('rozetkaToken', { type: 'json' });
-  const token = rec && rec.data && rec.data.token;
-  if (!token) {
+  const raw = rec && rec.data && rec.data.token;
+  if (!raw) {
     throw new Error('Токен Rozetka не збережено — вставте його на вкладці «Rozetka» в адмінці й натисніть «Зберегти».');
+  }
+  // Захисне очищення: навіть якщо токен зберігли до цього виправлення і в
+  // ньому лишився прихований символ (переніс рядка, пробіл), заголовок
+  // Authorization все одно сформується коректно.
+  const token = String(raw).replace(/[\s\u0000-\u001F\u007F]+/g, '');
+  if (!token) {
+    throw new Error('Збережений токен виявився порожнім після очищення — збережіть токен наново.');
   }
   return token;
 }
@@ -73,15 +80,28 @@ async function fetchAllRozetkaItems(token) {
   const pageSize = 100;
 
   while (true) {
-    const res = await fetch(
-      `${ROZETKA_API_BASE}/items/search?page=${page}&page_size=${pageSize}`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
+    let res;
+    try {
+      res = await fetch(
+        `${ROZETKA_API_BASE}/items/search?page=${page}&page_size=${pageSize}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+    } catch (e) {
+      // Помилки на цьому рівні (напр. "The string did not match the
+      // expected pattern") означають проблему з САМИМ запитом — найчастіше
+      // невалідний символ у токені або неправильний URL/шлях ендпоінта.
+      throw new Error(`[items:request] Не вдалось виконати запит до Rozetka (сторінка ${page}): ${(e && e.message) || e}`);
+    }
     if (!res.ok) {
       const text = await res.text().catch(() => '');
-      throw new Error(`Rozetka items fetch failed: ${res.status} ${text}`);
+      throw new Error(`[items:response ${res.status}] ${text || 'Rozetka повернула помилку без тексту'}`);
     }
-    const data = await res.json();
+    let data;
+    try {
+      data = await res.json();
+    } catch (e) {
+      throw new Error(`[items:parse] Відповідь Rozetka не є коректним JSON: ${(e && e.message) || e}`);
+    }
     // TODO: перевірте реальну назву поля-масиву у відповіді (тут — здогад).
     const batch = data.content || data.items || data.data || [];
     items.push(...batch);
@@ -142,11 +162,33 @@ exports.handler = async (event) => {
     const currentProducts = (currentRec && currentRec.data) || [];
     const existingById = new Map(currentProducts.map((p) => [p.id, p]));
 
+    const currentCategoriesRec = await catalogStore.get('categories', { type: 'json' });
+    const currentCategories = (currentCategoriesRec && currentCategoriesRec.data) || [];
+    const iconByName = new Map(currentCategories.map((c) => [c.name, c.icon]));
+
     const token = await getSavedRozetkaToken();
     const rozetkaItems = await fetchAllRozetkaItems(token);
     const merged = rozetkaItems.map((item) => mapRozetkaItemToProduct(item, existingById));
 
+    // Категорії повністю перебудовуються зі списку товарів Rozetka — це і
+    // прибирає дублікати/застарілі категорії, яких уже немає серед товарів.
+    // Порядок з'яви — за першим входженням у список товарів. Іконку лишаємо
+    // ту саму, якщо категорія з такою назвою вже існувала на сайті, інакше —
+    // нейтральна іконка за замовчуванням.
+    const seenCategoryNames = [];
+    for (const p of merged) {
+      if (p.cat && !seenCategoryNames.includes(p.cat)) seenCategoryNames.push(p.cat);
+    }
+    const categories = seenCategoryNames.map((name) => ({
+      name,
+      icon: iconByName.get(name) || '📦',
+    }));
+
+    // Повна заміна (не додавання) — товари й категорії, яких немає в
+    // поточному вивантаженні з Rozetka, зі списку зникають, щоб уникнути
+    // дублікатів.
     await catalogStore.setJSON('products', { data: merged, updatedAt: new Date().toISOString() });
+    await catalogStore.setJSON('categories', { data: categories, updatedAt: new Date().toISOString() });
 
     // Записуємо час останньої синхронізації, щоб показати в адмінці.
     const settingsStore = getSettingsStore();
@@ -159,7 +201,7 @@ exports.handler = async (event) => {
 
     const published = await triggerBuild();
 
-    return json(200, { ok: true, count: merged.length, published });
+    return json(200, { ok: true, count: merged.length, categoryCount: categories.length, published });
   } catch (err) {
     return json(500, { error: String((err && err.message) || err) });
   }

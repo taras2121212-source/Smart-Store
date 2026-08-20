@@ -58,7 +58,12 @@ exports.handler = async (event) => {
       } catch (e) {
         return json(400, { error: 'Некоректний JSON' });
       }
-      const token = String(body.token || '').trim();
+      // Прибираємо будь-які пробільні/керуючі символи (включно з прихованим
+      // переносом рядка, який часто лишається при копіюванні токена) — саме
+      // такий "сміттєвий" символ у токені спричиняє помилку "The string did
+      // not match the expected pattern" під час формування заголовка
+      // Authorization у fetch-запиті до Rozetka.
+      const token = String(body.token || '').replace(/[\s\u0000-\u001F\u007F]+/g, '');
       if (!token) {
         return json(400, { error: 'Токен порожній' });
       }

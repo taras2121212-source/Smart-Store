@@ -1807,8 +1807,8 @@
       if(res.status === 401){ showGate('Сесія закінчилась — увійдіть знову'); return; }
       const data = await res.json();
       if(!res.ok || !data.ok) throw new Error(data.error || 'Невідома помилка');
-      showToast(`Синхронізовано ${data.count} товарів`);
-      status.textContent = `Готово: ${data.count} товарів, сайт ${data.published ? 'оновлюється' : 'НЕ оновлено (перевірте BUILD_HOOK_URL)'}`;
+      showToast(`Синхронізовано ${data.count} товарів, ${data.categoryCount} категорій`);
+      status.textContent = `Готово: ${data.count} товарів, ${data.categoryCount} категорій, сайт ${data.published ? 'оновлюється' : 'НЕ оновлено (перевірте BUILD_HOOK_URL)'}`;
     }catch(e){
       showToast('Помилка синхронізації з Rozetka');
       status.textContent = 'Помилка: ' + (e && e.message ? e.message : 'невідома помилка');
