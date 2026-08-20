@@ -185,71 +185,10 @@
   </header>
 
   <div class="tabs">
-    <button class="tab-btn active" id="tabProductsBtn" onclick="switchTab('products')">Товари</button>
-    <button class="tab-btn" id="tabCategoriesBtn" onclick="switchTab('categories')">Категорії</button>
+    <button class="tab-btn active" id="tabRozetkaBtn" onclick="switchTab('rozetka')">Rozetka</button>
     <button class="tab-btn" id="tabReviewsBtn" onclick="switchTab('reviews')">Відгуки<span class="tab-badge" id="reviewsBadge" style="display:none;"></span></button>
     <button class="tab-btn" id="tabOrdersBtn" onclick="switchTab('orders')">Замовлення<span class="tab-badge" id="ordersBadge" style="display:none;"></span></button>
     <button class="tab-btn" id="tabPaymentBtn" onclick="switchTab('payment')">Оплата карткою</button>
-    <button class="tab-btn" id="tabRozetkaBtn" onclick="switchTab('rozetka')">Rozetka</button>
-  </div>
-
-  <div id="productsPanel">
-    <div class="notice" id="mainNotice">
-      Товари, ціни, наявність і фото підтягуються автоматично з Rozetka (вкладка «Rozetka» →
-      «Синхронізувати зараз»). Тут можна лише позначити товари для блоку
-      <b>«🔥 Топ продажів»</b> на сайті й задати порядок їх показу — решта редагується в
-      Кабінеті продавця Rozetka.
-    </div>
-
-    <div class="toolbar">
-      <input type="search" id="searchBox" placeholder="Пошук за назвою…" oninput="renderTable()">
-      <select id="catFilter" onchange="renderTable()"><option value="Всі">Категорія: всі</option></select>
-      <select id="brandFilter" onchange="renderTable()"><option value="Всі">Бренд: всі</option></select>
-      <select id="stockFilter" onchange="renderTable()">
-        <option value="Всі">Наявність: всі</option>
-        <option value="in">У наявності</option>
-        <option value="out">Немає в наявності</option>
-      </select>
-      <select id="saleFilter" onchange="renderTable()">
-        <option value="Всі">Знижка: всі</option>
-        <option value="sale">Зі знижкою</option>
-        <option value="nosale">Без знижки</option>
-      </select>
-      <span class="count-tag" id="countTag"></span>
-    </div>
-
-    <div class="topsale-panel" id="topSalePanel" style="display:none;">
-      <div class="topsale-panel-head">🔥 Топ продажів — порядок показу на сайті</div>
-      <div class="topsale-list" id="topSaleList"></div>
-    </div>
-
-    <table>
-      <thead>
-        <tr><th>Товар</th><th>Ціна</th><th>Наявність</th><th></th></tr>
-      </thead>
-      <tbody id="tbody"></tbody>
-    </table>
-  </div>
-
-  <div id="categoriesPanel" style="display:none;">
-    <div class="notice" id="categoriesNotice">
-      Самі категорії й те, які товари до них належать, підтягуються автоматично з Rozetka під час
-      синхронізації. Тут можна задати іконку категорії, порядок показу на сайті та
-      <b>приховати категорію разом з усіма її товарами з сайту</b> (клікніть на статус «Показано» /
-      «Приховано» в таблиці — товари при цьому не видаляються, лишаються в базі й знову з'являться на
-      сайті, якщо категорію повернути назад). Зміни зберігаються й публікуються одразу.
-    </div>
-
-    <div class="toolbar">
-      <span class="count-tag" id="categoriesCountTag"></span>
-    </div>
-
-    <table>
-      <thead>
-        <tr><th></th><th></th><th>Категорія</th><th>Товарів</th><th>На сайті</th><th></th></tr>
-      </thead>
-      <tbody id="categoriesTbody"></tbody>
-    </table>
   </div>
 
 
@@ -356,7 +295,7 @@
     </div>
   </div>
 
-  <div id="rozetkaPanel" style="display:none;">
+  <div id="rozetkaPanel">
     <div class="notice" id="rozetkaNotice">
       Вставте токен API продавця Rozetka (Кабінет продавця → Налаштування → Безпека API →
       «Згенерувати API токен») і натисніть <b>«Зберегти»</b>. Потім кнопка
@@ -376,29 +315,32 @@
       </div>
       <div style="font-size:13px; color:#666;" id="rzSyncStatus"></div>
     </div>
+
+    <div class="notice" style="margin-top:24px;">
+      Товари, ціни, наявність, фото й категорії підтягуються автоматично з Rozetka під час синхронізації.
+      Тут можна лише позначити товари для блоку <b>«🔥 Топ продажів»</b> на сайті та
+      <b>приховати категорію разом з усіма її товарами з сайту</b> — решта редагується в Кабінеті продавця Rozetka.
+    </div>
+
+    <div class="topsale-panel">
+      <div class="topsale-panel-head">🔥 Топ продажів — порядок показу на сайті</div>
+      <div class="toolbar" style="margin-bottom:12px;">
+        <input type="search" id="topSaleSearchBox" placeholder="Пошук товару, щоб додати в Топ продажів…" oninput="renderTopSaleSearch()">
+      </div>
+      <div class="topsale-list" id="topSaleSearchResults"></div>
+      <div id="topSalePanel" style="margin-top:10px;">
+        <div class="topsale-list" id="topSaleList"></div>
+      </div>
+    </div>
+
+    <div class="topsale-panel" style="margin-top:16px;">
+      <div class="topsale-panel-head">Категорії — показ на сайті</div>
+      <div class="topsale-list" id="categoriesSimpleList"></div>
+    </div>
   </div>
 </div>
 
-<div class="overlay" id="categoryModalOverlay">
-  <div class="modal" style="width:min(420px,96vw);">
-    <h3><span id="categoryModalTitle">Редагувати категорію</span><span class="x" onclick="closeCategoryModal()">✕</span></h3>
-    <form id="categoryForm" onsubmit="return saveCategory(event)">
-      <input type="hidden" id="cOrigName">
-      <div class="field"><label>Категорія</label><div id="cNameDisplay" style="font-weight:600; font-size:14px;"></div></div>
-      <div class="field">
-        <label>Іконка (емодзі)</label>
-        <input id="cIcon" placeholder="📦" maxlength="4">
-        <div class="icon-picker" id="iconPicker"></div>
-      </div>
-      <div class="field checkline"><input type="checkbox" id="cVisible" checked><label for="cVisible" style="font-size:13px; color:var(--text);">Показувати категорію на сайті</label></div>
-      <div class="hint" style="margin-top:-8px;">Якщо вимкнути — категорія і всі товари в ній зникнуть з сайту, але лишаться в базі й адмінці.</div>
-      <div class="modal-actions">
-        <button type="button" class="btn" onclick="closeCategoryModal()">Скасувати</button>
-        <button type="submit" class="btn btn-primary">Зберегти категорію</button>
-      </div>
-    </form>
-  </div>
-</div>
+
 
 <div class="overlay" id="reviewModalOverlay">
   <div class="modal" style="width:min(480px,96vw);">
@@ -442,6 +384,7 @@
     document.getElementById('gate').style.display = 'none';
     document.getElementById('wrap').classList.add('show');
     loadOrders();
+    loadRozetkaSettings();
   }
   function showGate(msg){
     document.getElementById('wrap').classList.remove('show');
@@ -498,11 +441,6 @@
   const CAT_DRAFT_KEY = 'smartstore_admin_categories_draft';
   const REVIEWS_DRAFT_KEY = 'smartstore_admin_reviews_draft';
   const DEFAULT_ICON = '📦';
-  const ICON_CHOICES = [
-    '📱','📲','🎧','🎤','⌚','🛡️','🔌','⚡','🔋','🔗','🧲','💡','🔦',
-    '🚗','📦','🧢','👕','🎮','🕹️','💻','🖥️','🖱️','⌨️','🔊','📶','📡',
-    '📷','🎥','🕶️','🔧','🧰','🏠','🧳','🎁','⭐','🔥','💎','🌐','✨'
-  ];
 
   const CATALOG_ENDPOINT = '/.netlify/functions/catalog';
 
@@ -561,10 +499,9 @@
   }
 
   function afterLoad(){
-    buildCatFilter();
-    renderTable();
     renderTopSalesPanel();
-    renderCategoriesTable();
+    renderTopSaleSearch();
+    renderCategoriesSimpleList();
     renderReviewsTable();
   }
 
@@ -582,44 +519,6 @@
     }catch(e){
       showToast('⚠️ Не вдалось зберегти чернетку категорій локально (localStorage переповнений). Натисніть «Опублікувати на сайті», щоб зміни не загубились!');
     }
-  }
-
-  function buildCatFilter(){
-    const catNames = categories.length ? categories.map(c=>c.name) : [...new Set(products.map(p=>p.cat).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'uk'));
-    const hiddenSet = new Set(categories.filter(c=>c.hidden).map(c=>c.name));
-    const sel = document.getElementById('catFilter');
-    const current = sel.value;
-    sel.innerHTML = '<option value="Всі">Категорія: всі</option>' + catNames.map(c=>`<option value="${esc(c)}">${esc(c)}${hiddenSet.has(c)?' (приховано)':''}</option>`).join('');
-    if(catNames.includes(current)) sel.value = current;
-
-    const brands = [...new Set(products.map(p=>p.brand).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'uk'));
-    const brandSel = document.getElementById('brandFilter');
-    const currentBrand = brandSel.value;
-    brandSel.innerHTML = '<option value="Всі">Бренд: всі</option>' + brands.map(b=>`<option value="${esc(b)}">${esc(b)}</option>`).join('');
-    if(brands.includes(currentBrand)) brandSel.value = currentBrand;
-  }
-
-  function discountPct(p){
-    if(!p.oldPrice || Number(p.oldPrice) <= Number(p.price)) return 0;
-    return Math.round((1 - p.price / p.oldPrice) * 100);
-  }
-
-  function filteredProducts(){
-    const q = document.getElementById('searchBox').value.trim().toLowerCase();
-    const cat = document.getElementById('catFilter').value;
-    const brand = document.getElementById('brandFilter').value;
-    const stock = document.getElementById('stockFilter').value;
-    const sale = document.getElementById('saleFilter').value;
-    return products.filter(p=>{
-      if(q && !p.name.toLowerCase().includes(q)) return false;
-      if(cat !== 'Всі' && p.cat !== cat) return false;
-      if(brand !== 'Всі' && p.brand !== brand) return false;
-      if(stock === 'in' && !p.available) return false;
-      if(stock === 'out' && p.available) return false;
-      if(sale === 'sale' && discountPct(p) <= 0) return false;
-      if(sale === 'nosale' && discountPct(p) > 0) return false;
-      return true;
-    });
   }
 
   // ---------- top sales panel (manages order of products.topSale === true) ----------
@@ -660,7 +559,7 @@
     if(p){ p.topSale = false; }
     saveDraft();
     renderTopSalesPanel();
-    renderTable();
+    renderTopSaleSearch();
     publishToBackend('products', products);
   }
 
@@ -673,68 +572,32 @@
       p.topOrder = marked.length ? Math.max(...marked.map(pr => pr.topOrder || 0)) + 1 : 0;
     }
     saveDraft();
-    renderTable();
     renderTopSalesPanel();
     showToast(p.topSale ? `«${p.name}» додано в Топ продажів, публікую…` : `«${p.name}» прибрано з Топ продажів, публікую…`);
     publishToBackend('products', products);
   }
 
-  // Товар, видалений тут, знову з'явиться після наступної синхронізації з
-  // Rozetka, якщо він і досі є серед активних/неактивних товарів продавця —
-  // це для видалення застарілих/тестових записів, а не постійного приховування
-  // (для постійного приховування без видалення товар лишається в наявності,
-  // або ховається разом з усією категорією на вкладці «Категорії»).
-  function deleteProduct(id){
-    const p = products.find(pr => pr.id === id);
-    if(!p) return;
-    if(!confirm(`Видалити товар «${p.name}» з адмінки й сайту?`)) return;
-    products = products.filter(pr => pr.id !== id);
-    saveDraft();
-    renderTable();
-    renderTopSalesPanel();
-    showToast('Товар видалено, публікую…');
-    publishToBackend('products', products);
+  // ---------- top sale search (finds a product to mark as topSale) ----------
+  function renderTopSaleSearch(){
+    const q = document.getElementById('topSaleSearchBox').value.trim().toLowerCase();
+    const results = document.getElementById('topSaleSearchResults');
+    if(!q){ results.innerHTML = ''; return; }
+    const matches = products.filter(p => !p.topSale && p.name.toLowerCase().includes(q)).slice(0, 20);
+    if(!matches.length){ results.innerHTML = '<div class="hint">Нічого не знайдено</div>'; return; }
+    results.innerHTML = matches.map(p => `
+      <div class="topsale-row">
+        <div class="thumb"><img src="${esc(p.img)}" alt="" onerror="this.style.display='none'"></div>
+        <div class="nm">${esc(p.name)}</div>
+        <div class="ctrls">
+          <button type="button" title="Додати в Топ продажів" onclick="addToTopSale(${p.id})">+ додати</button>
+        </div>
+      </div>`).join('');
   }
 
-  function renderTable(){
-    const list = filteredProducts();
-    const body = document.getElementById('tbody');
-    document.getElementById('countTag').textContent = `${list.length} з ${products.length} товарів`;
-    if(list.length === 0){
-      body.innerHTML = '<tr class="empty-row"><td colspan="4">Товарів не знайдено — синхронізуйте каталог у вкладці «Rozetka»</td></tr>';
-      return;
-    }
-    body.innerHTML = list.map(p => {
-      const d = discountPct(p);
-      const priceCell = d > 0
-        ? `<div style="text-decoration:line-through; color:var(--muted); font-size:11.5px;">${fmt(p.oldPrice)}</div><div>${fmt(p.price)} <span style="color:var(--red); font-weight:700; font-size:11px;">-${d}%</span></div>`
-        : fmt(p.price);
-      const catHidden = categories.some(c=>c.name===p.cat && c.hidden);
-      return `
-      <tr>
-        <td data-label="Товар">
-          <div class="name-cell">
-            <div class="thumb"><img src="${esc(p.img)}" alt="" onerror="this.style.display='none'"></div>
-            <div>
-              <div class="nm">${esc(p.name)}</div>
-              <div class="cat">${esc(p.cat)}${p.brand ? ' · ' + esc(p.brand) : ''}${catHidden ? ' · <span style="color:var(--red);">категорію приховано з сайту</span>' : ''}</div>
-            </div>
-          </div>
-        </td>
-        <td data-label="Ціна" class="price-cell">${priceCell}</td>
-        <td data-label="Наявність">
-          <span class="stock-pill ${p.available?'in':'out'}" style="cursor:default;">
-            <span class="sw"></span>${p.available?'У наявності':'Немає в наявності'}
-          </span>
-        </td>
-        <td data-label="">
-          <div class="row-actions">
-            <button class="icon-btn" title="${p.topSale ? 'Прибрати з Топ продажів' : 'Додати в Топ продажів'}" onclick="toggleTopSale(${p.id})">${p.topSale ? '★' : '☆'}</button>
-            <button class="icon-btn del" title="Видалити товар" onclick="deleteProduct(${p.id})">✕</button>
-          </div>
-        </td>
-      </tr>`;
-    }).join('');
+  function addToTopSale(id){
+    toggleTopSale(id);
+    document.getElementById('topSaleSearchBox').value = '';
+    renderTopSaleSearch();
   }
 
   // ---------- publish to backend (Netlify Blobs) + trigger rebuild ----------
@@ -791,20 +654,15 @@
 
   // ---------- tabs ----------
   function switchTab(tab){
-    document.getElementById('tabProductsBtn').classList.toggle('active', tab === 'products');
-    document.getElementById('tabCategoriesBtn').classList.toggle('active', tab === 'categories');
     document.getElementById('tabReviewsBtn').classList.toggle('active', tab === 'reviews');
     document.getElementById('tabOrdersBtn').classList.toggle('active', tab === 'orders');
     document.getElementById('tabPaymentBtn').classList.toggle('active', tab === 'payment');
-    document.getElementById('productsPanel').style.display = tab === 'products' ? 'block' : 'none';
-    document.getElementById('categoriesPanel').style.display = tab === 'categories' ? 'block' : 'none';
     document.getElementById('reviewsPanel').style.display = tab === 'reviews' ? 'block' : 'none';
     document.getElementById('ordersPanel').style.display = tab === 'orders' ? 'block' : 'none';
     document.getElementById('paymentPanel').style.display = tab === 'payment' ? 'block' : 'none';
     document.getElementById('tabRozetkaBtn').classList.toggle('active', tab === 'rozetka');
     document.getElementById('rozetkaPanel').style.display = tab === 'rozetka' ? 'block' : 'none';
     if(tab === 'orders') loadOrders();
-    if(tab === 'categories') renderCategoriesTable();
     if(tab === 'reviews') renderReviewsTable();
     if(tab === 'payment') loadPaymentCard();
     if(tab === 'rozetka') loadRozetkaSettings();
@@ -815,36 +673,21 @@
     return products.filter(p=>p.cat===name).length;
   }
 
-  function renderCategoriesTable(){
-    const body = document.getElementById('categoriesTbody');
-    document.getElementById('categoriesCountTag').textContent = `${categories.length} категорій`;
+  function renderCategoriesSimpleList(){
+    const list = document.getElementById('categoriesSimpleList');
     if(categories.length === 0){
-      body.innerHTML = '<tr class="empty-row"><td colspan="6">Категорій ще немає — синхронізуйте каталог у вкладці «Rozetka»</td></tr>';
+      list.innerHTML = '<div class="hint">Категорій ще немає — синхронізуйте каталог у вкладці «Rozetka»</div>';
       return;
     }
-    body.innerHTML = categories.map((c,i) => `
-      <tr style="${c.hidden ? 'opacity:.55;' : ''}">
-        <td data-label="">
-          <div class="cat-order-btns">
-            <button title="Вище" onclick="moveCategory(${i},-1)" ${i===0?'disabled':''}>▲</button>
-            <button title="Нижче" onclick="moveCategory(${i},1)" ${i===categories.length-1?'disabled':''}>▼</button>
-          </div>
-        </td>
-        <td data-label="" class="cat-icon-cell">${c.icon||DEFAULT_ICON}</td>
-        <td data-label="Категорія" class="cat-name-cell">${esc(c.name)}</td>
-        <td data-label="Товарів">${categoryProductCount(c.name)}</td>
-        <td data-label="На сайті">
+    list.innerHTML = categories.map(c => `
+      <div class="topsale-row">
+        <div class="nm">${c.icon||DEFAULT_ICON} ${esc(c.name)} <span style="color:var(--muted); font-weight:400;">(${categoryProductCount(c.name)})</span></div>
+        <div class="ctrls">
           <span class="stock-pill ${!c.hidden?'in':'out'}" onclick="toggleCategoryHidden('${esc(c.name).replace(/'/g,"\\'")}')">
             <span class="sw"></span>${!c.hidden?'Показано':'Приховано'}
           </span>
-        </td>
-        <td data-label="">
-          <div class="row-actions">
-            <button class="icon-btn" title="Редагувати" onclick="openCategoryModal('${esc(c.name).replace(/'/g,"\\'")}')">✎</button>
-            <button class="icon-btn del" title="Видалити категорію" onclick="deleteCategory('${esc(c.name).replace(/'/g,"\\'")}')">✕</button>
-          </div>
-        </td>
-      </tr>`).join('');
+        </div>
+      </div>`).join('');
   }
 
   function toggleCategoryHidden(name){
@@ -852,87 +695,9 @@
     if(!c) return;
     c.hidden = !c.hidden;
     saveCategoriesDraft();
-    renderCategoriesTable();
-    buildCatFilter();
+    renderCategoriesSimpleList();
     showToast(c.hidden ? `Категорію «${name}» приховано з сайту, публікую…` : `Категорію «${name}» знову показано на сайті, публікую…`);
     publishToBackend('categories', categories);
-  }
-
-  // Прибирає застарілий/дублікатний запис категорії з адмінки. Якщо в цій
-  // категорії ще лишились товари, вона автоматично з'явиться знову (з
-  // іконкою за замовчуванням) при наступній збірці сайту чи синхронізації з
-  // Rozetka — тут можна видаляти лише порожні або вже нікому не потрібні
-  // категорії.
-  function deleteCategory(name){
-    const count = categoryProductCount(name);
-    const msg = count > 0
-      ? `У категорії «${name}» ще є ${count} товар(ів) — вони не видаляться, але категорія втратить налаштування (іконку/порядок) і може з'явитись знову з іконкою за замовчуванням. Видалити?`
-      : `Видалити категорію «${name}»?`;
-    if(!confirm(msg)) return;
-    categories = categories.filter(x => x.name !== name);
-    saveCategoriesDraft();
-    renderCategoriesTable();
-    buildCatFilter();
-    showToast('Категорію видалено, публікую…');
-    publishToBackend('categories', categories);
-  }
-
-  function moveCategory(index, dir){
-    const target = index + dir;
-    if(target < 0 || target >= categories.length) return;
-    const tmp = categories[index];
-    categories[index] = categories[target];
-    categories[target] = tmp;
-    saveCategoriesDraft();
-    renderCategoriesTable();
-    buildCatFilter();
-    publishToBackend('categories', categories);
-  }
-
-  let selectedIcon = DEFAULT_ICON;
-
-  function buildIconPicker(){
-    const picker = document.getElementById('iconPicker');
-    picker.innerHTML = ICON_CHOICES.map(ic => `<button type="button" class="${ic===selectedIcon?'sel':''}" onclick="pickIcon('${ic}')">${ic}</button>`).join('');
-  }
-  function pickIcon(ic){
-    selectedIcon = ic;
-    document.getElementById('cIcon').value = ic;
-    buildIconPicker();
-  }
-
-  function openCategoryModal(name){
-    document.getElementById('categoryForm').reset();
-    const c = categories.find(x=>x.name===name);
-    if(!c) return;
-    document.getElementById('categoryModalTitle').textContent = 'Редагувати категорію';
-    document.getElementById('cOrigName').value = c.name;
-    document.getElementById('cNameDisplay').textContent = c.name;
-    document.getElementById('cIcon').value = c.icon || DEFAULT_ICON;
-    document.getElementById('cVisible').checked = !c.hidden;
-    selectedIcon = c.icon || DEFAULT_ICON;
-    buildIconPicker();
-    document.getElementById('categoryModalOverlay').classList.add('open');
-  }
-  function closeCategoryModal(){ document.getElementById('categoryModalOverlay').classList.remove('open'); }
-  document.getElementById('categoryModalOverlay').addEventListener('click', e=>{ if(e.target.id==='categoryModalOverlay') closeCategoryModal(); });
-
-  function saveCategory(e){
-    e.preventDefault();
-    const origName = document.getElementById('cOrigName').value;
-    const icon = document.getElementById('cIcon').value.trim() || DEFAULT_ICON;
-    const hidden = !document.getElementById('cVisible').checked;
-    const c = categories.find(x=>x.name===origName);
-    if(!c) return false;
-    c.icon = icon;
-    c.hidden = hidden;
-    showToast('Категорію оновлено, публікую…');
-    saveCategoriesDraft();
-    renderCategoriesTable();
-    buildCatFilter();
-    closeCategoryModal();
-    publishToBackend('categories', categories);
-    return false;
   }
 
   // ---------- reviews (moderation queue, stored in reviews.json) ----------

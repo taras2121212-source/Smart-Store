@@ -209,10 +209,32 @@ function buildCharacteristics(item) {
 }
 
 // ---------------------------------------------------------------------------
+// Опис товару часто заповнений лише в ОДНОГО товару в групі різновидів
+// (group_id) — решта варіантів (інші кольори/об'єми тощо) лишаються без
+// власного опису, і на самому Rozetka для них підставляється опис
+// "головного" товару групи (це підтверджено довідкою Rozetka: "Якщо опис
+// різновидів товару не заповнений, для вивантаження прайс-листа підтягується
+// опис головного товару"). API items/search цього автоматично НЕ робить —
+// кожен item повертає свій власний (часто порожній) description/description_ua.
+// Тому тут явно збираємо перший непорожній опис на кожну group_id і
+// підставляємо його товарам групи, які лишились без власного опису.
+// ---------------------------------------------------------------------------
+function buildGroupDescriptions(items) {
+  const byGroup = new Map();
+  for (const item of items) {
+    const groupId = item.group_id;
+    if (!groupId) continue;
+    const desc = item.description_ua || item.description;
+    if (desc && !byGroup.has(groupId)) byGroup.set(groupId, desc);
+  }
+  return byGroup;
+}
+
+// ---------------------------------------------------------------------------
 // Перетворення товару Rozetka (Item Object Model з items/search) у формат
 // каталогу сайту.
 // ---------------------------------------------------------------------------
-function mapRozetkaItemToProduct(item, existingById) {
+function mapRozetkaItemToProduct(item, existingById, groupDescriptions) {
   const id = item.id;
   const existing = existingById.get(id);
 
@@ -237,7 +259,7 @@ function mapRozetkaItemToProduct(item, existingById) {
     img: images[0] || (existing && existing.img) || '',
     images,
     available: Number(item.stock_quantity) > 0,
-    spec: item.description_ua || item.description || (existing && existing.spec) || '',
+    spec: item.description_ua || item.description || (item.group_id && groupDescriptions.get(item.group_id)) || (existing && existing.spec) || '',
     characteristics: (() => {
       const built = buildCharacteristics(item);
       return built.length ? built : (existing && existing.characteristics) || [];
@@ -325,7 +347,8 @@ exports.handler = async (event) => {
     const token = await getSavedRozetkaToken();
     const rozetkaItems = await fetchAllRozetkaItems(token);
     await prefetchCategoryOptions(token, rozetkaItems);
-    const merged = rozetkaItems.map((item) => mapRozetkaItemToProduct(item, existingById));
+    const groupDescriptions = buildGroupDescriptions(rozetkaItems);
+    const merged = rozetkaItems.map((item) => mapRozetkaItemToProduct(item, existingById, groupDescriptions));
 
     // Категорії повністю перебудовуються зі списку товарів Rozetka — це і
     // прибирає дублікати/застарілі категорії, яких уже немає серед товарів.

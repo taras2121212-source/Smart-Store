@@ -294,7 +294,6 @@ GTAG_SNIPPET = (
 HEADER_HTML = """<header>
   <div class="logo"><a href="{root}index.html" style="display:flex;align-items:center;gap:10px;"><img src="{root}logo.jpg" alt="SMART STORE логотип">SMART STORE</a></div>
   <nav class="links">
-    <a href="{root}index.html#categories">Категорії</a>
     <a href="{root}index.html#products">Товари</a>
     <a href="{root}index.html#why">Чому ми</a>
     <a href="{root}index.html#contacts">Контакти</a>
@@ -306,7 +305,6 @@ HEADER_HTML = """<header>
 </header>
 <div class="mobile-nav" id="mobileNav">
   <div class="panel">
-    <a href="{root}index.html#categories" onclick="toggleMobileNav()">Категорії</a>
     <a href="{root}index.html#products" onclick="toggleMobileNav()">Товари</a>
     <a href="{root}index.html#why" onclick="toggleMobileNav()">Чому ми</a>
     <a href="{root}index.html#contacts" onclick="toggleMobileNav()">Контакти</a>
