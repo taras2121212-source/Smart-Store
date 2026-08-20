@@ -2,15 +2,14 @@
 //
 // Запускається кнопкою «Синхронізувати з Rozetka» в адмінці (POST-запит із
 // дійсною сесією адміна). Забирає токен, збережений через
-// netlify/functions/rozetka-settings.js, тягне товари з Rozetka Marketplace
-// API і оновлює каталог сайту (той самий Netlify Blobs store, який читає
-// build.py / catalog.js), після чого запускає пересборку сайту.
+// netlify/functions/rozetka-settings.js, тягне товари з Rozetka Seller API
+// (items/search) і оновлює каталог сайту (той самий Netlify Blobs store,
+// який читає build.py / catalog.js), після чого запускає пересборку сайту.
 //
-// ‼️ ЩО ТРЕБА ЗВІРИТИ ПЕРЕД ПЕРШИМ ЗАПУСКОМ (позначено TODO нижче):
-// сам ендпоінт для отримання СПИСКУ товарів і точні назви полів у відповіді.
-// Токен уже готовий (Безпека API → Згенерувати API токен), автентифікація
-// через логін/пароль тут більше не потрібна — токен використовується
-// напряму як Bearer.
+// Ендпоінт і формат відповіді звірено з офіційною специфікацією
+// "ROZETKA Marketplace API" (розділ 6. Products — 6.3 Products search).
+// Токен береться з Кабінету продавця (Налаштування → Безпека API →
+// Згенерувати API токен) і використовується напряму як Bearer.
 
 const { getStore } = require('@netlify/blobs');
 const { isSessionValid } = require('./lib/session');
@@ -69,22 +68,22 @@ async function getSavedRozetkaToken() {
 }
 
 // ---------------------------------------------------------------------------
-// Отримання списку товарів продавця
-// ⚠️ Ендпоінт нижче НЕ підтверджений напряму з документацією (вона рендериться
-// через JS і вимагає входу в кабінет продавця). Звірте з
-// https://api-seller.rozetka.com.ua/apidoc/ (розділ "Items") точний шлях і
-// параметри пагінації, якщо цей варіант поверне помилку.
+// Отримання списку товарів продавця: GET /items/search, з пагінацією за
+// _meta.pageCount (сервер сам вирішує, скільки товарів на сторінці — це не
+// параметр запиту). item_active=1 — тягнемо лише активні (опубліковані)
+// товари, а не заблоковані/на модерації. expand додає опис і промо-ціну,
+// які інакше API не повертає.
 // ---------------------------------------------------------------------------
 async function fetchAllRozetkaItems(token) {
   const items = [];
   let page = 1;
-  const pageSize = 100;
+  const MAX_PAGES = 1000; // запобіжник від нескінченного циклу
 
   while (true) {
     let res;
     try {
       res = await fetch(
-        `${ROZETKA_API_BASE}/items/search?page=${page}&page_size=${pageSize}`,
+        `${ROZETKA_API_BASE}/items/search?item_active=1&expand=description,description_ua,price_promo,group_item&page=${page}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
     } catch (e) {
@@ -103,37 +102,57 @@ async function fetchAllRozetkaItems(token) {
     } catch (e) {
       throw new Error(`[items:parse] Відповідь Rozetka не є коректним JSON: ${(e && e.message) || e}`);
     }
-    // TODO: перевірте реальну назву поля-масиву у відповіді (тут — здогад).
-    const batch = data.content || data.items || data.data || [];
+    if (data.success === false) {
+      const msg = (data.errors && (data.errors.description || data.errors.message)) || 'Rozetka повернула помилку';
+      throw new Error(`[items:api] ${msg}`);
+    }
+
+    const content = data.content || {};
+    const batch = Array.isArray(content.items) ? content.items : [];
     items.push(...batch);
 
-    if (batch.length < pageSize) break;
+    const pageCount = Number(content._meta && content._meta.pageCount) || 0;
+    if (batch.length === 0 || page >= pageCount) break;
     page += 1;
-    if (page > 200) break; // запобіжник
+    if (page > MAX_PAGES) break;
   }
 
   return items;
 }
 
 // ---------------------------------------------------------------------------
-// Перетворення товару Rozetka у формат вашого сайту.
-// TODO: звірте реальні назви полів item.* з фактичною відповіддю API.
+// Перетворення товару Rozetka (Item Object Model з items/search) у формат
+// каталогу сайту.
 // ---------------------------------------------------------------------------
 function mapRozetkaItemToProduct(item, existingById) {
-  const id = item.id || item.item_id;
+  const id = item.id;
   const existing = existingById.get(id);
+
+  const regularPrice = Number(item.price) || 0;
+  const promoPrice = Number(item.price_promo) || 0;
+  const hasPromo = promoPrice > 0 && promoPrice < regularPrice;
+
+  const photos = Array.isArray(item.photo) ? item.photo.filter(Boolean) : [];
+  const images = photos.length ? photos : (item.photo_preview ? [item.photo_preview] : []);
+
+  const groupTitle = item.group_item && (item.group_item.title_ua || item.group_item.title);
+  const catName = (item.catalog_category && item.catalog_category.name) || '';
 
   return {
     id,
-    name: item.name || item.title || (existing && existing.name) || '',
-    price: Number(item.price) || 0,
+    name: item.name_ua || item.name || (existing && existing.name) || '',
+    price: hasPromo ? promoPrice : regularPrice,
+    oldPrice: hasPromo ? regularPrice : undefined,
     cur: 'UAH',
-    cat: item.category_name || (existing && existing.cat) || '',
-    group: item.group_name || (existing && existing.group) || '',
-    img: (Array.isArray(item.images) && item.images[0]) || item.image || (existing && existing.img) || '',
-    available: item.stock > 0 || item.is_available === true,
-    spec: item.description || (existing && existing.spec) || '',
-    brand: item.vendor || item.brand || (existing && existing.brand) || '',
+    cat: catName || (existing && existing.cat) || '',
+    group: groupTitle || (existing && existing.group) || '',
+    img: images[0] || (existing && existing.img) || '',
+    images,
+    available: Number(item.stock_quantity) > 0,
+    spec: item.description_ua || item.description || (existing && existing.spec) || '',
+    // Rozetka Seller API не повертає бренд/виробника окремим полем у
+    // items/search — лишаємо те, що вже було збережено на сайті для цього ID.
+    brand: (existing && existing.brand) || '',
   };
 }
 
