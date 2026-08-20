@@ -184,7 +184,6 @@
       <input type="file" id="importFile" accept="application/json" style="display:none" onchange="importJson(this.files[0])">
       <button class="btn" onclick="copyJson()">Копіювати JSON</button>
       <button class="btn" onclick="downloadJson()">Резервна копія (.json)</button>
-      <button class="btn" id="migrateImagesBtn" onclick="migrateBase64Images()" title="Перенести наявні вбудовані фото (base64) на хостинг ImgBB">🗜 Перенести старі фото на хостинг</button>
       <button class="btn btn-primary" id="publishProductsBtn" onclick="publishProducts()">🚀 Опублікувати на сайті</button>
       <button class="btn btn-danger" onclick="logout()">Вийти</button>
     </div>
@@ -196,6 +195,7 @@
     <button class="tab-btn" id="tabReviewsBtn" onclick="switchTab('reviews')">Відгуки<span class="tab-badge" id="reviewsBadge" style="display:none;"></span></button>
     <button class="tab-btn" id="tabOrdersBtn" onclick="switchTab('orders')">Замовлення<span class="tab-badge" id="ordersBadge" style="display:none;"></span></button>
     <button class="tab-btn" id="tabPaymentBtn" onclick="switchTab('payment')">Оплата карткою</button>
+    <button class="tab-btn" id="tabRozetkaBtn" onclick="switchTab('rozetka')">Rozetka</button>
   </div>
 
   <div id="productsPanel">
@@ -368,6 +368,28 @@
       </div>
     </div>
   </div>
+
+  <div id="rozetkaPanel" style="display:none;">
+    <div class="notice" id="rozetkaNotice">
+      Вставте токен API продавця Rozetka (Кабінет продавця → Налаштування → Безпека API →
+      «Згенерувати API токен») і натисніть <b>«Зберегти»</b>. Потім кнопка
+      <b>«Синхронізувати зараз»</b> підтягне ваші товари з Rozetka та оновить каталог сайту.
+      Токен зберігається лише на сервері й ніколи не показується повністю в адмінці.
+    </div>
+
+    <div style="max-width:480px; display:flex; flex-direction:column; gap:12px;">
+      <div class="field">
+        <label>Токен API Rozetka</label>
+        <input type="password" id="rzTokenInput" placeholder="Вставте токен сюди" autocomplete="off">
+        <div style="font-size:12px; color:#888; margin-top:4px;" id="rzTokenPreview"></div>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn btn-primary" id="saveRozetkaTokenBtn" onclick="saveRozetkaToken()">💾 Зберегти токен</button>
+        <button class="btn" id="runRozetkaSyncBtn" onclick="runRozetkaSync()">🔄 Синхронізувати зараз</button>
+      </div>
+      <div style="font-size:13px; color:#666;" id="rzSyncStatus"></div>
+    </div>
+  </div>
 </div>
 
 <div class="overlay" id="modalOverlay">
@@ -398,11 +420,6 @@
         <div class="img-gallery-edit" id="imgGalleryEdit"></div>
         <input type="file" id="fImgFile" accept="image/*" multiple onchange="handleImgFiles(this.files)">
         <div class="hint" id="imgFileHint">Оберіть один або кілька файлів — вони автоматично конвертуються у JPG. Перше фото зі стрічки — головне, воно показується в каталозі й картках.</div>
-        <div class="img-upload-row" style="margin-top:8px;">
-          <input type="text" id="fImgUrl" placeholder="https://... посилання на фото" style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault(); addImgByUrl();}">
-          <button type="button" class="btn" onclick="addImgByUrl()">Додати за URL</button>
-        </div>
-        <div class="hint">Посилання додається як є (без конвертації) — саме такі фото коректно підхоплює Google Merchant Center фід. Файли з комп'ютера теж працюють, але для фіда краще додавати фото через URL.</div>
         <input type="hidden" id="fImg">
       </div>
       <div class="field"><label>Опис товару</label><textarea id="fSpec" placeholder="Повний опис товару для картки"></textarea></div>
@@ -893,77 +910,24 @@
     });
   }
 
-  // Завантажує вже стиснене фото (data-URL) на зовнішній хостинг (ImgBB) через
-  // нашу функцію /.netlify/functions/upload-image і повертає звичайне
-  // посилання. Якщо хостинг з якоїсь причини недоступний (немає ключа,
-  // збій мережі тощо) — повертає null, і виклик, що чекає на результат,
-  // сам вирішує, чи лишати фото локально (base64) як запасний варіант.
-  async function uploadImageToHost(dataUrl, filename){
-    try{
-      const res = await fetch('/.netlify/functions/upload-image', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dataUrl, name: filename })
-      });
-      const result = await res.json().catch(()=>({}));
-      if(res.ok && result.ok && result.url) return result.url;
-      console.warn('Не вдалось завантажити фото на хостинг, лишаю тимчасово як base64:', result.error || res.status);
-      return null;
-    }catch(e){
-      console.warn('Помилка звʼязку з хостингом фото, лишаю тимчасово як base64:', e);
-      return null;
-    }
-  }
-
   async function handleImgFiles(fileList){
     const files = Array.from(fileList || []);
     if(!files.length) return;
     const hint = document.getElementById('imgFileHint');
     hint.textContent = `Обробка ${files.length} фото…`;
-    let done = 0, failed = 0, fellBackToBase64 = 0;
+    let done = 0, failed = 0;
     for(const file of files){
       try{
         const dataUrl = await fileToCompressedJpeg(file);
-        hint.textContent = `Завантаження фото на хостинг…`;
-        const hostedUrl = await uploadImageToHost(dataUrl, file.name);
-        if(hostedUrl){
-          editImages.push(hostedUrl);
-        } else {
-          // запасний варіант — фото лишається "важким" (base64) у products.json;
-          // публікація й далі працюватиме, доки таких фото небагато, але варто
-          // якнайшвидше розібратись, чому хостинг недоступний (див. підказку в hint)
-          editImages.push(dataUrl);
-          fellBackToBase64++;
-        }
+        editImages.push(dataUrl);
         done++;
       }catch(e){ failed++; }
       renderImgGalleryEdit();
     }
-    if(fellBackToBase64){
-      hint.textContent = `Додано ${done} фото, але ${fellBackToBase64} з них НЕ вдалось завантажити на хостинг ` +
-        `(лишились як важкі вбудовані фото — перевірте IMGBB_API_KEY у Netlify).` +
-        (failed ? ` Ще ${failed} не вдалось обробити.` : '');
-    } else {
-      hint.textContent = failed
-        ? `Додано ${done} фото, не вдалось обробити ${failed}`
-        : `Додано ${done} фото (завантажено на хостинг). Перше в стрічці — головне.`;
-    }
+    hint.textContent = failed
+      ? `Додано ${done} фото, не вдалось обробити ${failed}`
+      : `Додано ${done} фото. Перше в стрічці — головне.`;
     document.getElementById('fImgFile').value = '';
-  }
-
-  function addImgByUrl(){
-    const input = document.getElementById('fImgUrl');
-    const url = (input.value || '').trim();
-    if(!url) return;
-    if(!/^https?:\/\/.+/i.test(url)){
-      alert('Вкажіть коректне посилання, що починається з http:// або https://');
-      return;
-    }
-    editImages.push(url);
-    renderImgGalleryEdit();
-    document.getElementById('imgFileHint').textContent = 'Фото за посиланням додано. Перше в стрічці — головне.';
-    input.value = '';
   }
 
   function closeModal(){ document.getElementById('modalOverlay').classList.remove('open'); }
@@ -1095,67 +1059,6 @@
 
   function publishProducts(){ publishToBackend('products', products, 'publishProductsBtn'); }
 
-  // Одноразова "чистка": знаходить товари, у яких фото й досі зберігаються
-  // вбудовано (base64, data:image/...), і перезаливає кожне на хостинг
-  // (ImgBB) через /.netlify/functions/upload-image, замінюючи в products.json
-  // важкий base64-рядок на звичайне посилання. Саме накопичення таких
-  // base64-фото роздуває сховище (Blobs) до мегабайтів і призводить до
-  // помилки публікації (запит впирається в ліміт 6 MB на боці Netlify ще
-  // до виклику функції catalog.js).
-  async function migrateBase64Images(){
-    const btn = document.getElementById('migrateImagesBtn');
-    const isB64 = (s) => typeof s === 'string' && s.startsWith('data:image');
-
-    // рахуємо, скільки всього таких фото є, щоб показати прогрес
-    let total = 0;
-    products.forEach(p => {
-      if(isB64(p.img)) total++;
-      (p.images || []).forEach(im => { if(isB64(im)) total++; });
-    });
-
-    if(total === 0){
-      showToast('Вбудованих (base64) фото не знайдено — усі фото вже посилання. Можна публікувати.');
-      return;
-    }
-
-    if(!confirm(`Знайдено ${total} вбудованих фото (base64). Перезалити їх на хостинг ImgBB зараз? ` +
-      `Це може зайняти хвилину-другу залежно від кількості.`)) return;
-
-    btn.disabled = true;
-    let done = 0, failed = 0;
-    const origText = btn.textContent;
-
-    for(const p of products){
-      // якщо є масив images — мігруємо кожен елемент і перебудовуємо img (перше фото)
-      if(Array.isArray(p.images) && p.images.length){
-        for(let i=0; i<p.images.length; i++){
-          if(!isB64(p.images[i])) continue;
-          btn.textContent = `Перенесення фото… ${done+failed}/${total}`;
-          const url = await uploadImageToHost(p.images[i], p.name || ('product-' + p.id));
-          if(url){ p.images[i] = url; done++; } else { failed++; }
-        }
-        p.img = p.images[0] || p.img;
-      } else if(isB64(p.img)){
-        btn.textContent = `Перенесення фото… ${done+failed}/${total}`;
-        const url = await uploadImageToHost(p.img, p.name || ('product-' + p.id));
-        if(url){ p.img = url; done++; } else { failed++; }
-      }
-    }
-
-    btn.disabled = false;
-    btn.textContent = origText;
-    saveDraft();
-    renderTable();
-
-    if(failed === 0){
-      showToast(`Готово! Перенесено ${done} фото на хостинг. Тепер натисніть «🚀 Опублікувати на сайті».`);
-    } else {
-      showToast(`Перенесено ${done} фото, не вдалось перенести ${failed} ` +
-        `(перевірте IMGBB_API_KEY у Netlify — Environment variables). ` +
-        `Товари з невдалими фото й далі важкі — публікація може не пройти, доки їх не виправите.`);
-    }
-  }
-
   function copyJson(){
     navigator.clipboard.writeText(JSON.stringify(products)).then(()=>{
       showToast('JSON скопійовано в буфер обміну');
@@ -1184,10 +1087,13 @@
     document.getElementById('reviewsPanel').style.display = tab === 'reviews' ? 'block' : 'none';
     document.getElementById('ordersPanel').style.display = tab === 'orders' ? 'block' : 'none';
     document.getElementById('paymentPanel').style.display = tab === 'payment' ? 'block' : 'none';
+    document.getElementById('tabRozetkaBtn').classList.toggle('active', tab === 'rozetka');
+    document.getElementById('rozetkaPanel').style.display = tab === 'rozetka' ? 'block' : 'none';
     if(tab === 'orders') loadOrders();
     if(tab === 'categories') renderCategoriesTable();
     if(tab === 'reviews') renderReviewsTable();
     if(tab === 'payment') loadPaymentCard();
+    if(tab === 'rozetka') loadRozetkaSettings();
   }
 
   // ---------- categories (stored in categories.json, separate from products) ----------
@@ -1840,6 +1746,74 @@
       showToast('Не вдалось зберегти реквізити');
     }finally{
       btn.disabled = false; btn.textContent = '💾 Зберегти';
+    }
+  }
+
+  // ---------- Rozetka sync (via Netlify Functions /rozetka-settings, /rozetka-sync) ----------
+  const ROZETKA_SETTINGS_ENDPOINT = '/.netlify/functions/rozetka-settings';
+  const ROZETKA_SYNC_ENDPOINT = '/.netlify/functions/rozetka-sync';
+
+  async function loadRozetkaSettings(){
+    try{
+      const res = await fetch(ROZETKA_SETTINGS_ENDPOINT, { credentials: 'include' });
+      if(res.status === 401){ showGate('Сесія закінчилась — увійдіть знову'); return; }
+      const data = await res.json();
+      const preview = document.getElementById('rzTokenPreview');
+      const status = document.getElementById('rzSyncStatus');
+      if(data.hasToken){
+        preview.textContent = `Збережено токен: ${data.tokenPreview}`;
+      } else {
+        preview.textContent = 'Токен ще не збережено';
+      }
+      status.textContent = data.lastSyncAt
+        ? `Остання синхронізація: ${new Date(data.lastSyncAt).toLocaleString('uk-UA')}`
+        : 'Синхронізацій ще не було';
+    }catch(e){
+      showToast('Не вдалось завантажити налаштування Rozetka');
+    }
+  }
+
+  async function saveRozetkaToken(){
+    const token = document.getElementById('rzTokenInput').value.trim();
+    if(!token){ showToast('Вставте токен'); return; }
+    const btn = document.getElementById('saveRozetkaTokenBtn');
+    btn.disabled = true; btn.textContent = 'Зберігаємо…';
+    try{
+      const res = await fetch(ROZETKA_SETTINGS_ENDPOINT, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type':'application/json' },
+        body: JSON.stringify({ token })
+      });
+      if(res.status === 401){ showGate('Сесія закінчилась — увійдіть знову'); return; }
+      if(!res.ok) throw new Error();
+      document.getElementById('rzTokenInput').value = '';
+      showToast('Токен збережено');
+      loadRozetkaSettings();
+    }catch(e){
+      showToast('Не вдалось зберегти токен');
+    }finally{
+      btn.disabled = false; btn.textContent = '💾 Зберегти токен';
+    }
+  }
+
+  async function runRozetkaSync(){
+    const btn = document.getElementById('runRozetkaSyncBtn');
+    const status = document.getElementById('rzSyncStatus');
+    btn.disabled = true; btn.textContent = 'Синхронізуємо…';
+    status.textContent = 'Іде синхронізація, це може зайняти хвилину…';
+    try{
+      const res = await fetch(ROZETKA_SYNC_ENDPOINT, { method: 'POST', credentials: 'include' });
+      if(res.status === 401){ showGate('Сесія закінчилась — увійдіть знову'); return; }
+      const data = await res.json();
+      if(!res.ok || !data.ok) throw new Error(data.error || 'Невідома помилка');
+      showToast(`Синхронізовано ${data.count} товарів`);
+      status.textContent = `Готово: ${data.count} товарів, сайт ${data.published ? 'оновлюється' : 'НЕ оновлено (перевірте BUILD_HOOK_URL)'}`;
+    }catch(e){
+      showToast('Помилка синхронізації з Rozetka');
+      status.textContent = 'Помилка: ' + (e && e.message ? e.message : 'невідома помилка');
+    }finally{
+      btn.disabled = false; btn.textContent = '🔄 Синхронізувати зараз';
     }
   }
 
