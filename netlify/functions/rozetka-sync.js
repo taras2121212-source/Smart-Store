@@ -153,6 +153,10 @@ function mapRozetkaItemToProduct(item, existingById) {
     // Rozetka Seller API не повертає бренд/виробника окремим полем у
     // items/search — лишаємо те, що вже було збережено на сайті для цього ID.
     brand: (existing && existing.brand) || '',
+    // "Топ продажів" на головній — це ручна відмітка в адмінці, Rozetka
+    // такого поля не має, тож лишаємо те, що вже було збережено для цього ID.
+    topSale: !!(existing && existing.topSale),
+    topOrder: existing && existing.topOrder,
   };
 }
 
@@ -184,7 +188,9 @@ exports.handler = async (event) => {
 
     const currentCategoriesRec = await catalogStore.get('categories', { type: 'json' });
     const currentCategories = (currentCategoriesRec && currentCategoriesRec.data) || [];
-    const iconByName = new Map(currentCategories.map((c) => [c.name, c.icon]));
+    const categoryMetaByName = new Map(
+      currentCategories.map((c, idx) => [c.name, { icon: c.icon, hidden: !!c.hidden, order: idx }])
+    );
 
     const token = await getSavedRozetkaToken();
     const rozetkaItems = await fetchAllRozetkaItems(token);
@@ -192,17 +198,27 @@ exports.handler = async (event) => {
 
     // Категорії повністю перебудовуються зі списку товарів Rozetka — це і
     // прибирає дублікати/застарілі категорії, яких уже немає серед товарів.
-    // Порядок з'яви — за першим входженням у список товарів. Іконку лишаємо
-    // ту саму, якщо категорія з такою назвою вже існувала на сайті, інакше —
-    // нейтральна іконка за замовчуванням.
+    // Іконку, ознаку "приховати" й порядок показу лишаємо ті самі, що вже
+    // були налаштовані в адмінці для категорії з такою назвою — Rozetka цих
+    // даних не надає, і без цього кожна синхронізація стирала б ручне
+    // налаштування. Нові категорії (яких ще не було на сайті) дописуються в
+    // кінець, у порядку першої появи серед товарів.
     const seenCategoryNames = [];
     for (const p of merged) {
       if (p.cat && !seenCategoryNames.includes(p.cat)) seenCategoryNames.push(p.cat);
     }
-    const categories = seenCategoryNames.map((name) => ({
-      name,
-      icon: iconByName.get(name) || '📦',
-    }));
+    const categories = seenCategoryNames
+      .map((name, seenIndex) => {
+        const meta = categoryMetaByName.get(name);
+        return {
+          name,
+          icon: (meta && meta.icon) || '📦',
+          hidden: !!(meta && meta.hidden),
+          order: meta ? meta.order : currentCategories.length + seenIndex,
+        };
+      })
+      .sort((a, b) => a.order - b.order)
+      .map(({ order, ...rest }) => rest);
 
     // Повна заміна (не додавання) — товари й категорії, яких немає в
     // поточному вивантаженні з Rozetka, зі списку зникають, щоб уникнути
@@ -214,9 +230,12 @@ exports.handler = async (event) => {
     const settingsStore = getSettingsStore();
     const tokenRec = await settingsStore.get('rozetkaToken', { type: 'json' });
     await settingsStore.setJSON('rozetkaToken', {
-      ...(tokenRec && tokenRec.data),
-      lastSyncAt: new Date().toISOString(),
-      lastSyncCount: merged.length,
+      data: {
+        ...(tokenRec && tokenRec.data),
+        lastSyncAt: new Date().toISOString(),
+        lastSyncCount: merged.length,
+      },
+      updatedAt: new Date().toISOString(),
     });
 
     const published = await triggerBuild();

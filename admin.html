@@ -180,11 +180,6 @@
   <header>
     <div class="logo"><img src="logo.jpg" alt="logo">Адмінка товарів</div>
     <div class="top-actions">
-      <button class="btn" onclick="document.getElementById('importFile').click()">Завантажити JSON</button>
-      <input type="file" id="importFile" accept="application/json" style="display:none" onchange="importJson(this.files[0])">
-      <button class="btn" onclick="copyJson()">Копіювати JSON</button>
-      <button class="btn" onclick="downloadJson()">Резервна копія (.json)</button>
-      <button class="btn btn-primary" id="publishProductsBtn" onclick="publishProducts()">🚀 Опублікувати на сайті</button>
       <button class="btn btn-danger" onclick="logout()">Вийти</button>
     </div>
   </header>
@@ -200,10 +195,10 @@
 
   <div id="productsPanel">
     <div class="notice" id="mainNotice">
-      Редагуйте товари тут як завгодно (додавайте, змінюйте ціни й наявність, фото), а тоді натисніть
-      <b>«🚀 Опублікувати на сайті»</b> — зміни підуть напряму на сервер і приблизно за хвилину з'являться
-      для всіх відвідувачів (сайт автоматично перезбирається). Кнопка <b class="mono">«Резервна копія (.json)»</b>
-      просто завантажує файл собі на комп'ютер про всяк випадок — для роботи сайту вона більше не потрібна.
+      Товари, ціни, наявність і фото підтягуються автоматично з Rozetka (вкладка «Rozetka» →
+      «Синхронізувати зараз»). Тут можна лише позначити товари для блоку
+      <b>«🔥 Топ продажів»</b> на сайті й задати порядок їх показу — решта редагується в
+      Кабінеті продавця Rozetka.
     </div>
 
     <div class="toolbar">
@@ -220,7 +215,6 @@
         <option value="sale">Зі знижкою</option>
         <option value="nosale">Без знижки</option>
       </select>
-      <button class="btn btn-primary" onclick="openModal()">+ Додати товар</button>
       <span class="count-tag" id="countTag"></span>
     </div>
 
@@ -239,22 +233,15 @@
 
   <div id="categoriesPanel" style="display:none;">
     <div class="notice" id="categoriesNotice">
-      Тут можна додавати нові категорії, перейменовувати наявні (назва одразу зміниться в усіх товарах цієї
-      категорії), видаляти непотрібні та <b>приховувати категорію разом з усіма її товарами з сайту</b>
-      (клікніть на статус «Показано» / «Приховано» в таблиці — товари при цьому не видаляються, лишаються
-      в базі й знову з'являться на сайті, якщо категорію повернути назад). Порядок у списку — це порядок,
-      у якому категорії показуються на сайті. Після змін натисніть <b>«🚀 Опублікувати на сайті»</b> —
-      сайт перезбереться і оновиться приблизно за хвилину.
+      Самі категорії й те, які товари до них належать, підтягуються автоматично з Rozetka під час
+      синхронізації. Тут можна задати іконку категорії, порядок показу на сайті та
+      <b>приховати категорію разом з усіма її товарами з сайту</b> (клікніть на статус «Показано» /
+      «Приховано» в таблиці — товари при цьому не видаляються, лишаються в базі й знову з'являться на
+      сайті, якщо категорію повернути назад). Зміни зберігаються й публікуються одразу.
     </div>
 
     <div class="toolbar">
-      <button class="btn btn-primary" onclick="openCategoryModal()">+ Додати категорію</button>
       <span class="count-tag" id="categoriesCountTag"></span>
-      <button class="btn" onclick="document.getElementById('importCategoriesFile').click()">Завантажити JSON</button>
-      <input type="file" id="importCategoriesFile" accept="application/json" style="display:none" onchange="importCategoriesJson(this.files[0])">
-      <button class="btn" onclick="copyCategoriesJson()">Копіювати JSON</button>
-      <button class="btn" onclick="downloadCategoriesJson()">Резервна копія (.json)</button>
-      <button class="btn btn-primary" id="publishCategoriesBtn" onclick="publishCategories()">🚀 Опублікувати на сайті</button>
     </div>
 
     <table>
@@ -392,54 +379,12 @@
   </div>
 </div>
 
-<div class="overlay" id="modalOverlay">
-  <div class="modal">
-    <h3><span id="modalTitle">Додати товар</span><span class="x" onclick="closeModal()">✕</span></h3>
-    <form id="productForm" onsubmit="return saveProduct(event)">
-      <input type="hidden" id="fId">
-      <div class="field"><label>Назва товару *</label><input id="fName" required placeholder="Напр. Чохол Blueo для iPhone 15"></div>
-      <div class="field-row">
-        <div class="field"><label>Ціна (грн) *</label><input id="fPrice" type="number" min="0" step="1" required placeholder="699"></div>
-        <div class="field"><label>Стара ціна (для знижки, необов'язково)</label><input id="fOldPrice" type="number" min="0" step="1" placeholder="Напр. 899"></div>
-      </div>
-      <div class="field-row">
-        <div class="field"><label>Категорія *</label>
-          <select id="fCat" required></select>
-        </div>
-        <div class="field"><label>Бренд *</label>
-          <input id="fBrand" required list="brandList" placeholder="Напр. Acefast">
-          <datalist id="brandList"></datalist>
-        </div>
-      </div>
-      <div class="hint" style="margin-top:-8px; margin-bottom:6px;">Немає потрібної категорії у списку? Додайте її у вкладці «Категорії» — вона одразу з'явиться тут.</div>
-      <div class="hint" style="margin-top:-8px; margin-bottom:6px;">Бренд обов'язковий — за ним на сайті працює фільтр каталогу «Бренд». Якщо бренду ще немає в списку, просто впишіть новий — він одразу з'явиться у фільтрі на сайті після оновлення products.json.</div>
-      <div class="hint" style="margin-top:-8px; margin-bottom:6px;">Якщо вказати стару ціну (більшу за поточну) — на сайті покажеться закреслена стара ціна і бейдж знижки «-XX%».</div>
-      <div class="field"><label>Група / серія (необов'язково)</label><input id="fGroup" placeholder="Напр. Чехлы Blueo"></div>
-      <div class="field">
-        <label>Фото товару (можна кілька)</label>
-        <div class="img-gallery-edit" id="imgGalleryEdit"></div>
-        <input type="file" id="fImgFile" accept="image/*" multiple onchange="handleImgFiles(this.files)">
-        <div class="hint" id="imgFileHint">Оберіть один або кілька файлів — вони автоматично конвертуються у JPG. Перше фото зі стрічки — головне, воно показується в каталозі й картках.</div>
-        <input type="hidden" id="fImg">
-      </div>
-      <div class="field"><label>Опис товару</label><textarea id="fSpec" placeholder="Повний опис товару для картки"></textarea></div>
-      <div class="field checkline"><input type="checkbox" id="fAvailable" checked><label for="fAvailable" style="font-size:13px; color:var(--text);">Товар у наявності</label></div>
-      <div class="field checkline"><input type="checkbox" id="fTopSale"><label for="fTopSale" style="font-size:13px; color:var(--text);">🔥 Показувати в «Топ продажів» на сайті</label></div>
-      <div class="hint" id="idHint"></div>
-      <div class="modal-actions">
-        <button type="button" class="btn" onclick="closeModal()">Скасувати</button>
-        <button type="submit" class="btn btn-primary">Зберегти товар</button>
-      </div>
-    </form>
-  </div>
-</div>
-
 <div class="overlay" id="categoryModalOverlay">
   <div class="modal" style="width:min(420px,96vw);">
-    <h3><span id="categoryModalTitle">Додати категорію</span><span class="x" onclick="closeCategoryModal()">✕</span></h3>
+    <h3><span id="categoryModalTitle">Редагувати категорію</span><span class="x" onclick="closeCategoryModal()">✕</span></h3>
     <form id="categoryForm" onsubmit="return saveCategory(event)">
       <input type="hidden" id="cOrigName">
-      <div class="field"><label>Назва категорії *</label><input id="cName" required placeholder="Напр. Чохли iPhone"></div>
+      <div class="field"><label>Категорія</label><div id="cNameDisplay" style="font-weight:600; font-size:14px;"></div></div>
       <div class="field">
         <label>Іконка (емодзі)</label>
         <input id="cIcon" placeholder="📦" maxlength="4">
@@ -452,20 +397,6 @@
         <button type="submit" class="btn btn-primary">Зберегти категорію</button>
       </div>
     </form>
-  </div>
-</div>
-
-<div class="overlay" id="reassignModalOverlay">
-  <div class="modal" style="width:min(420px,96vw);">
-    <h3><span>Перенести товари й видалити</span><span class="x" onclick="closeReassignModal()">✕</span></h3>
-    <p class="hint" id="reassignHint" style="margin-bottom:14px; font-size:13px; color:var(--text);"></p>
-    <div class="field"><label>Перенести товари в категорію</label>
-      <select id="reassignTarget"></select>
-    </div>
-    <div class="modal-actions">
-      <button type="button" class="btn" onclick="closeReassignModal()">Скасувати</button>
-      <button type="button" class="btn btn-danger" onclick="confirmReassignAndDelete()">Перенести і видалити категорію</button>
-    </div>
   </div>
 </div>
 
@@ -563,7 +494,6 @@
   let products = [];
   let categories = []; // [{name, icon}]
   let reviews = []; // [{id, rating, name, city, text, published, createdAt}]
-  let editImages = []; // фото товару, які редагуються зараз у модальному вікні (масив data-URL/посилань)
   const DRAFT_KEY = 'smartstore_admin_draft';
   const CAT_DRAFT_KEY = 'smartstore_admin_categories_draft';
   const REVIEWS_DRAFT_KEY = 'smartstore_admin_reviews_draft';
@@ -628,7 +558,6 @@
 
   function afterLoad(){
     buildCatFilter();
-    buildProductCatSelect();
     renderTable();
     renderTopSalesPanel();
     renderCategoriesTable();
@@ -664,19 +593,6 @@
     const currentBrand = brandSel.value;
     brandSel.innerHTML = '<option value="Всі">Бренд: всі</option>' + brands.map(b=>`<option value="${esc(b)}">${esc(b)}</option>`).join('');
     if(brands.includes(currentBrand)) brandSel.value = currentBrand;
-    document.getElementById('brandList').innerHTML = brands.map(b=>`<option value="${esc(b)}">`).join('');
-  }
-
-  // populates the category <select> inside the product add/edit modal
-  function buildProductCatSelect(){
-    const sel = document.getElementById('fCat');
-    const current = sel.value;
-    if(categories.length === 0){
-      sel.innerHTML = '<option value="">— спочатку додайте категорію —</option>';
-      return;
-    }
-    sel.innerHTML = categories.map(c => `<option value="${esc(c.name)}">${c.icon||DEFAULT_ICON} ${esc(c.name)}${c.hidden?' (приховано з сайту)':''}</option>`).join('');
-    if(categories.some(c=>c.name===current)) sel.value = current;
   }
 
   function discountPct(p){
@@ -732,6 +648,7 @@
     marked.forEach((p, i) => { p.topOrder = i; });
     saveDraft();
     renderTopSalesPanel();
+    publishToBackend('products', products);
   }
 
   function removeFromTop(id){
@@ -740,6 +657,22 @@
     saveDraft();
     renderTopSalesPanel();
     renderTable();
+    publishToBackend('products', products);
+  }
+
+  function toggleTopSale(id){
+    const p = products.find(pr => pr.id === id);
+    if(!p) return;
+    p.topSale = !p.topSale;
+    if(p.topSale && p.topOrder === undefined){
+      const marked = products.filter(pr => pr.topSale);
+      p.topOrder = marked.length ? Math.max(...marked.map(pr => pr.topOrder || 0)) + 1 : 0;
+    }
+    saveDraft();
+    renderTable();
+    renderTopSalesPanel();
+    showToast(p.topSale ? `«${p.name}» додано в Топ продажів, публікую…` : `«${p.name}» прибрано з Топ продажів, публікую…`);
+    publishToBackend('products', products);
   }
 
   function renderTable(){
@@ -747,7 +680,7 @@
     const body = document.getElementById('tbody');
     document.getElementById('countTag').textContent = `${list.length} з ${products.length} товарів`;
     if(list.length === 0){
-      body.innerHTML = '<tr class="empty-row"><td colspan="4">Товарів не знайдено</td></tr>';
+      body.innerHTML = '<tr class="empty-row"><td colspan="4">Товарів не знайдено — синхронізуйте каталог у вкладці «Rozetka»</td></tr>';
       return;
     }
     body.innerHTML = list.map(p => {
@@ -769,248 +702,17 @@
         </td>
         <td data-label="Ціна" class="price-cell">${priceCell}</td>
         <td data-label="Наявність">
-          <span class="stock-pill ${p.available?'in':'out'}" onclick="toggleStock(${p.id})">
+          <span class="stock-pill ${p.available?'in':'out'}" style="cursor:default;">
             <span class="sw"></span>${p.available?'У наявності':'Немає в наявності'}
           </span>
         </td>
         <td data-label="">
           <div class="row-actions">
-            <button class="icon-btn" title="Редагувати" onclick="openModal(${p.id})">✎</button>
-            <button class="icon-btn del" title="Видалити" onclick="deleteProduct(${p.id})">✕</button>
+            <button class="icon-btn" title="${p.topSale ? 'Прибрати з Топ продажів' : 'Додати в Топ продажів'}" onclick="toggleTopSale(${p.id})">${p.topSale ? '★' : '☆'}</button>
           </div>
         </td>
       </tr>`;
     }).join('');
-  }
-
-  function toggleStock(id){
-    const p = products.find(pr=>pr.id===id);
-    if(!p) return;
-    p.available = !p.available;
-    saveDraft();
-    renderTable();
-    showToast('Наявність оновлено (не забудьте зберегти файл)');
-  }
-
-  function deleteProduct(id){
-    if(!confirm('Видалити цей товар з каталогу?')) return;
-    products = products.filter(p=>p.id!==id);
-    saveDraft();
-    buildCatFilter();
-    renderTable();
-    renderTopSalesPanel();
-    renderCategoriesTable();
-    showToast('Товар видалено, публікую…');
-    // Видалення публікуємо на сервер одразу, а не чекаємо ручного кліку на
-    // "Опублікувати" — це не дає видаленню загубитись, якщо чернетка в
-    // localStorage не збережеться (наприклад, через переповнений ліміт
-    // через фото у форматі base64) і при оновленні сторінки товар "повернеться".
-    publishToBackend('products', products, 'publishProductsBtn');
-  }
-
-  function productImagesOf(p){
-    if(Array.isArray(p.images) && p.images.length) return p.images.filter(Boolean);
-    return p.img ? [p.img] : [];
-  }
-
-  function openModal(id){
-    document.getElementById('productForm').reset();
-    document.getElementById('fAvailable').checked = true;
-    document.getElementById('fImgFile').value = '';
-    if(id){
-      const p = products.find(pr=>pr.id===id);
-      if(!p) return;
-      document.getElementById('modalTitle').textContent = 'Редагувати товар';
-      document.getElementById('fId').value = p.id;
-      document.getElementById('fName').value = p.name;
-      document.getElementById('fPrice').value = p.price;
-      document.getElementById('fOldPrice').value = p.oldPrice || '';
-      document.getElementById('fCat').value = p.cat;
-      document.getElementById('fBrand').value = p.brand || '';
-      document.getElementById('fGroup').value = p.group || '';
-      document.getElementById('fSpec').value = p.spec || '';
-      document.getElementById('fAvailable').checked = !!p.available;
-      document.getElementById('fTopSale').checked = !!p.topSale;
-      document.getElementById('idHint').textContent = 'ID товару: ' + p.id;
-      editImages = productImagesOf(p);
-      document.getElementById('imgFileHint').textContent = editImages.length ? 'Поточні фото збережено. Додайте ще файли, приберіть чи переставте зайві.' : 'Оберіть один або кілька файлів фото.';
-    } else {
-      document.getElementById('modalTitle').textContent = 'Додати товар';
-      document.getElementById('fId').value = '';
-      document.getElementById('fBrand').value = '';
-      document.getElementById('fOldPrice').value = '';
-      document.getElementById('idHint').textContent = 'ID буде присвоєно автоматично';
-      editImages = [];
-      document.getElementById('imgFileHint').textContent = 'Оберіть один або кілька файлів — вони автоматично конвертуються у JPG.';
-    }
-    renderImgGalleryEdit();
-    document.getElementById('modalOverlay').classList.add('open');
-  }
-
-  // ---------- image gallery editor (multiple photos per product) ----------
-  function renderImgGalleryEdit(){
-    const box = document.getElementById('imgGalleryEdit');
-    document.getElementById('fImg').value = editImages[0] || '';
-    if(editImages.length === 0){
-      box.innerHTML = '<div class="img-gallery-empty">Фото ще не додано</div>';
-      return;
-    }
-    box.innerHTML = editImages.map((src, i) => `
-      <div class="img-gallery-item">
-        <div class="thumb ${i===0?'primary':''}"><img src="${esc(src)}" alt="" onerror="this.style.display='none'"></div>
-        <div class="img-gallery-ctrls">
-          <button type="button" title="Лівіше" onclick="moveEditImage(${i},-1)" ${i===0?'disabled':''}>◀</button>
-          <button type="button" title="Правіше" onclick="moveEditImage(${i},1)" ${i===editImages.length-1?'disabled':''}>▶</button>
-          <button type="button" class="del" title="Видалити" onclick="removeEditImage(${i})">✕</button>
-        </div>
-        <div class="img-gallery-label">${i===0?'Головне':'Фото '+(i+1)}</div>
-      </div>`).join('');
-  }
-
-  function moveEditImage(index, dir){
-    const target = index + dir;
-    if(target < 0 || target >= editImages.length) return;
-    const tmp = editImages[index];
-    editImages[index] = editImages[target];
-    editImages[target] = tmp;
-    renderImgGalleryEdit();
-  }
-
-  function removeEditImage(index){
-    editImages.splice(index, 1);
-    renderImgGalleryEdit();
-  }
-
-  // converts a single File to a compressed JPG data-URL
-  function fileToCompressedJpeg(file){
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const img = new Image();
-        img.onload = () => {
-          const maxDim = 1000;
-          let w = img.width, h = img.height;
-          if(w > maxDim || h > maxDim){
-            if(w >= h){ h = Math.round(h * maxDim / w); w = maxDim; }
-            else { w = Math.round(w * maxDim / h); h = maxDim; }
-          }
-          const canvas = document.createElement('canvas');
-          canvas.width = w; canvas.height = h;
-          const ctx = canvas.getContext('2d');
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(0, 0, w, h);
-          ctx.drawImage(img, 0, 0, w, h);
-          resolve(canvas.toDataURL('image/jpeg', 0.82));
-        };
-        img.onerror = () => reject(new Error('bad image'));
-        img.src = ev.target.result;
-      };
-      reader.onerror = () => reject(new Error('read failed'));
-      reader.readAsDataURL(file);
-    });
-  }
-
-  async function handleImgFiles(fileList){
-    const files = Array.from(fileList || []);
-    if(!files.length) return;
-    const hint = document.getElementById('imgFileHint');
-    hint.textContent = `Обробка ${files.length} фото…`;
-    let done = 0, failed = 0;
-    for(const file of files){
-      try{
-        const dataUrl = await fileToCompressedJpeg(file);
-        editImages.push(dataUrl);
-        done++;
-      }catch(e){ failed++; }
-      renderImgGalleryEdit();
-    }
-    hint.textContent = failed
-      ? `Додано ${done} фото, не вдалось обробити ${failed}`
-      : `Додано ${done} фото. Перше в стрічці — головне.`;
-    document.getElementById('fImgFile').value = '';
-  }
-
-  function closeModal(){ document.getElementById('modalOverlay').classList.remove('open'); }
-  document.getElementById('modalOverlay').addEventListener('click', e=>{ if(e.target.id==='modalOverlay') closeModal(); });
-
-  function nextTopOrder(){
-    const marked = products.filter(p => p.topSale);
-    return marked.length ? Math.max(...marked.map(p => p.topOrder || 0)) + 1 : 0;
-  }
-
-  function saveProduct(e){
-    e.preventDefault();
-    const idVal = document.getElementById('fId').value;
-    const name = document.getElementById('fName').value.trim();
-    const price = parseFloat(document.getElementById('fPrice').value) || 0;
-    const oldPriceRaw = parseFloat(document.getElementById('fOldPrice').value);
-    const oldPrice = (oldPriceRaw && oldPriceRaw > price) ? oldPriceRaw : null;
-    const cat = document.getElementById('fCat').value.trim();
-    if(!cat){ showToast('Спочатку додайте хоча б одну категорію у вкладці «Категорії»'); return; }
-    const brand = document.getElementById('fBrand').value.trim();
-    const group = document.getElementById('fGroup').value.trim();
-    const images = editImages.slice();
-    const img = images[0] || '';
-    const spec = document.getElementById('fSpec').value.trim();
-    const available = document.getElementById('fAvailable').checked;
-    const topSale = document.getElementById('fTopSale').checked;
-
-    if(idVal){
-      const p = products.find(pr=>pr.id===parseInt(idVal));
-      if(p){
-        Object.assign(p, {name, price, cat, brand, group, img, images, spec, available, topSale});
-        if(oldPrice){ p.oldPrice = oldPrice; } else { delete p.oldPrice; }
-        if(topSale && p.topOrder === undefined) p.topOrder = nextTopOrder();
-      }
-      showToast('Товар оновлено');
-    } else {
-      const newId = products.length ? Math.max(...products.map(p=>p.id)) + 1 : 1;
-      const newP = { id:newId, name, price, cur:'UAH', cat, brand, group, img, images, available, spec, topSale };
-      if(oldPrice) newP.oldPrice = oldPrice;
-      if(topSale) newP.topOrder = nextTopOrder();
-      products.push(newP);
-      showToast('Товар додано');
-    }
-    saveDraft();
-    buildCatFilter();
-    buildProductCatSelect();
-    renderTable();
-    renderTopSalesPanel();
-    closeModal();
-  }
-
-  function importJson(file){
-    if(!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => {
-      try{
-        const data = JSON.parse(ev.target.result);
-        if(!Array.isArray(data)) throw new Error('not array');
-        products = data;
-        syncCategoriesWithProducts();
-        saveDraft();
-        saveCategoriesDraft();
-        buildCatFilter();
-        buildProductCatSelect();
-        renderTable();
-        renderTopSalesPanel();
-        renderCategoriesTable();
-        showToast('JSON завантажено');
-      }catch(err){
-        showToast('Помилка: файл не є коректним products.json');
-      }
-    };
-    reader.readAsText(file);
-  }
-
-  function downloadJson(){
-    const blob = new Blob([JSON.stringify(products)], {type:'application/json'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'products.json';
-    document.body.appendChild(a); a.click(); a.remove();
-    URL.revokeObjectURL(url);
-    showToast('Файл завантажено — це резервна копія, для сайту вона не обов\'язкова');
   }
 
   // ---------- publish to backend (Netlify Blobs) + trigger rebuild ----------
@@ -1057,16 +759,6 @@
     }
   }
 
-  function publishProducts(){ publishToBackend('products', products, 'publishProductsBtn'); }
-
-  function copyJson(){
-    navigator.clipboard.writeText(JSON.stringify(products)).then(()=>{
-      showToast('JSON скопійовано в буфер обміну');
-    }).catch(()=>{
-      showToast('Не вдалось скопіювати — спробуйте "Резервна копія (.json)"');
-    });
-  }
-
   let toastTimer;
   function showToast(msg){
     const t = document.getElementById('toast');
@@ -1105,7 +797,7 @@
     const body = document.getElementById('categoriesTbody');
     document.getElementById('categoriesCountTag').textContent = `${categories.length} категорій`;
     if(categories.length === 0){
-      body.innerHTML = '<tr class="empty-row"><td colspan="6">Категорій ще немає — додайте першу</td></tr>';
+      body.innerHTML = '<tr class="empty-row"><td colspan="6">Категорій ще немає — синхронізуйте каталог у вкладці «Rozetka»</td></tr>';
       return;
     }
     body.innerHTML = categories.map((c,i) => `
@@ -1127,7 +819,6 @@
         <td data-label="">
           <div class="row-actions">
             <button class="icon-btn" title="Редагувати" onclick="openCategoryModal('${esc(c.name).replace(/'/g,"\\'")}')">✎</button>
-            <button class="icon-btn del" title="Видалити" onclick="deleteCategory('${esc(c.name).replace(/'/g,"\\'")}')">✕</button>
           </div>
         </td>
       </tr>`).join('');
@@ -1139,8 +830,9 @@
     c.hidden = !c.hidden;
     saveCategoriesDraft();
     renderCategoriesTable();
-    buildProductCatSelect();
-    showToast(c.hidden ? `Категорію «${name}» приховано з сайту (не забудьте зберегти файл)` : `Категорію «${name}» знову показано на сайті`);
+    buildCatFilter();
+    showToast(c.hidden ? `Категорію «${name}» приховано з сайту, публікую…` : `Категорію «${name}» знову показано на сайті, публікую…`);
+    publishToBackend('categories', categories);
   }
 
   function moveCategory(index, dir){
@@ -1152,7 +844,7 @@
     saveCategoriesDraft();
     renderCategoriesTable();
     buildCatFilter();
-    buildProductCatSelect();
+    publishToBackend('categories', categories);
   }
 
   let selectedIcon = DEFAULT_ICON;
@@ -1169,22 +861,14 @@
 
   function openCategoryModal(name){
     document.getElementById('categoryForm').reset();
-    if(name){
-      const c = categories.find(x=>x.name===name);
-      if(!c) return;
-      document.getElementById('categoryModalTitle').textContent = 'Редагувати категорію';
-      document.getElementById('cOrigName').value = c.name;
-      document.getElementById('cName').value = c.name;
-      document.getElementById('cIcon').value = c.icon || DEFAULT_ICON;
-      document.getElementById('cVisible').checked = !c.hidden;
-      selectedIcon = c.icon || DEFAULT_ICON;
-    } else {
-      document.getElementById('categoryModalTitle').textContent = 'Додати категорію';
-      document.getElementById('cOrigName').value = '';
-      document.getElementById('cIcon').value = DEFAULT_ICON;
-      document.getElementById('cVisible').checked = true;
-      selectedIcon = DEFAULT_ICON;
-    }
+    const c = categories.find(x=>x.name===name);
+    if(!c) return;
+    document.getElementById('categoryModalTitle').textContent = 'Редагувати категорію';
+    document.getElementById('cOrigName').value = c.name;
+    document.getElementById('cNameDisplay').textContent = c.name;
+    document.getElementById('cIcon').value = c.icon || DEFAULT_ICON;
+    document.getElementById('cVisible').checked = !c.hidden;
+    selectedIcon = c.icon || DEFAULT_ICON;
     buildIconPicker();
     document.getElementById('categoryModalOverlay').classList.add('open');
   }
@@ -1194,131 +878,19 @@
   function saveCategory(e){
     e.preventDefault();
     const origName = document.getElementById('cOrigName').value;
-    const name = document.getElementById('cName').value.trim();
     const icon = document.getElementById('cIcon').value.trim() || DEFAULT_ICON;
     const hidden = !document.getElementById('cVisible').checked;
-    if(!name) return false;
-
-    const dup = categories.find(c => c.name.toLowerCase() === name.toLowerCase() && c.name !== origName);
-    if(dup){ showToast('Категорія з такою назвою вже існує'); return false; }
-
-    if(origName){
-      const c = categories.find(x=>x.name===origName);
-      if(c){
-        if(origName !== name){
-          products.forEach(p=>{ if(p.cat===origName) p.cat = name; });
-        }
-        c.name = name;
-        c.icon = icon;
-        c.hidden = hidden;
-      }
-      showToast('Категорію оновлено');
-    } else {
-      categories.push({ name, icon, hidden });
-      showToast('Категорію додано');
-    }
-    saveDraft();
+    const c = categories.find(x=>x.name===origName);
+    if(!c) return false;
+    c.icon = icon;
+    c.hidden = hidden;
+    showToast('Категорію оновлено, публікую…');
     saveCategoriesDraft();
-    buildCatFilter();
-    buildProductCatSelect();
-    renderTable();
     renderCategoriesTable();
+    buildCatFilter();
     closeCategoryModal();
+    publishToBackend('categories', categories);
     return false;
-  }
-
-  let pendingDeleteCategory = null;
-
-  function deleteCategory(name){
-    const count = categoryProductCount(name);
-    if(count === 0){
-      if(!confirm(`Видалити категорію «${name}»?`)) return;
-      categories = categories.filter(c=>c.name!==name);
-      saveCategoriesDraft();
-      buildCatFilter();
-      buildProductCatSelect();
-      renderCategoriesTable();
-      showToast('Категорію видалено, публікую…');
-      // Публікуємо одразу, щоб видалення не загубилось при оновленні сторінки
-      // (та ж причина, що й для видалення товарів — див. коментар у deleteProduct).
-      publishToBackend('categories', categories, 'publishCategoriesBtn');
-      return;
-    }
-    const others = categories.filter(c=>c.name!==name);
-    if(others.length === 0){
-      showToast('Це єдина категорія — спершу додайте іншу, щоб перенести товари');
-      return;
-    }
-    pendingDeleteCategory = name;
-    document.getElementById('reassignHint').textContent = `У категорії «${name}» зараз ${count} товар(ів). Оберіть, куди їх перенести перед видаленням:`;
-    document.getElementById('reassignTarget').innerHTML = others.map(c=>`<option value="${esc(c.name)}">${c.icon||DEFAULT_ICON} ${esc(c.name)}</option>`).join('');
-    document.getElementById('reassignModalOverlay').classList.add('open');
-  }
-  function closeReassignModal(){
-    document.getElementById('reassignModalOverlay').classList.remove('open');
-    pendingDeleteCategory = null;
-  }
-  document.getElementById('reassignModalOverlay').addEventListener('click', e=>{ if(e.target.id==='reassignModalOverlay') closeReassignModal(); });
-
-  function confirmReassignAndDelete(){
-    if(!pendingDeleteCategory) return;
-    const target = document.getElementById('reassignTarget').value;
-    const name = pendingDeleteCategory;
-    products.forEach(p=>{ if(p.cat===name) p.cat = target; });
-    categories = categories.filter(c=>c.name!==name);
-    saveDraft();
-    saveCategoriesDraft();
-    buildCatFilter();
-    buildProductCatSelect();
-    renderTable();
-    renderCategoriesTable();
-    closeReassignModal();
-    showToast(`Товари перенесено в «${target}», категорію видалено, публікую…`);
-    // Публікуємо обидва типи одразу — товари (у них змінилась категорія) і
-    // категорії (одну видалено) — щоб нічого не загубилось при оновленні сторінки.
-    publishToBackend('products', products, 'publishProductsBtn');
-    publishToBackend('categories', categories, 'publishCategoriesBtn');
-  }
-
-  function importCategoriesJson(file){
-    if(!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => {
-      try{
-        const data = JSON.parse(ev.target.result);
-        if(!Array.isArray(data)) throw new Error('not array');
-        categories = data.filter(c=>c && c.name);
-        syncCategoriesWithProducts();
-        saveCategoriesDraft();
-        buildCatFilter();
-        buildProductCatSelect();
-        renderCategoriesTable();
-        showToast('categories.json завантажено');
-      }catch(err){
-        showToast('Помилка: файл не є коректним categories.json');
-      }
-    };
-    reader.readAsText(file);
-  }
-
-  function downloadCategoriesJson(){
-    const blob = new Blob([JSON.stringify(categories)], {type:'application/json'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'categories.json';
-    document.body.appendChild(a); a.click(); a.remove();
-    URL.revokeObjectURL(url);
-    showToast('Файл завантажено — це резервна копія, для сайту вона не обов\'язкова');
-  }
-
-  function publishCategories(){ publishToBackend('categories', categories, 'publishCategoriesBtn'); }
-
-  function copyCategoriesJson(){
-    navigator.clipboard.writeText(JSON.stringify(categories)).then(()=>{
-      showToast('JSON скопійовано в буфер обміну');
-    }).catch(()=>{
-      showToast('Не вдалось скопіювати — спробуйте "Зберегти categories.json"');
-    });
   }
 
   // ---------- reviews (moderation queue, stored in reviews.json) ----------
